@@ -1,0 +1,5 @@
+date,season,team,opponent,is_home,team_score,opp_score,spread
+2024-11-06,2024-25,Team A,Team B,1,76,68,-5.5
+2024-11-06,2024-25,Team B,Team A,0,68,76,5.5
+2024-11-10,2024-25,Team A,Team C,0,71,74,2.0
+2024-11-10,2024-25,Team C,Team A,1,74,71,-2.0

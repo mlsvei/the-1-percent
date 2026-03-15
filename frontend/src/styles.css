@@ -1,0 +1,1915 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;800&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  --bg: #f6efe5;
+  --panel: #fff8ee;
+  --ink: #192126;
+  --accent: #d95d39;
+  --accent-2: #2f5d62;
+  --line: #dfd2c1;
+  --good: #2b7a4b;
+  --bad: #b62828;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 22%, rgba(255, 208, 120, 0.2) 0%, transparent 34%),
+    radial-gradient(circle at 88% 28%, rgba(214, 152, 58, 0.18) 0%, transparent 36%),
+    linear-gradient(180deg, #060606 0%, #0f0d09 32%, #2b2113 62%, #5a3f1f 82%, #b8843b 100%);
+  min-height: 100vh;
+}
+
+.page {
+  width: min(1200px, 92vw);
+  margin: 0 auto;
+  padding: 28px 0 80px;
+  animation: rise 500ms ease;
+}
+
+.hero {
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.topNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.navBtn {
+  border: 1px solid rgba(255, 217, 128, 0.45);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f3d086;
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+  padding: 8px 12px;
+}
+
+.navBtn:hover {
+  background: rgba(255, 215, 135, 0.18);
+  color: #ffe8b5;
+}
+
+.wordmark {
+  font-family: 'Cinzel', 'Times New Roman', serif;
+  font-size: clamp(1.65rem, 3.4vw, 2.45rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #fff2c1 0%, #dfb458 48%, #a06a22 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 1px 0 rgba(255, 239, 186, 0.56), 0 2px 10px rgba(89, 56, 16, 0.2);
+}
+
+h1 {
+  margin: 0;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.03em;
+  font-size: clamp(2rem, 6vw, 4.2rem);
+  line-height: 0.95;
+}
+
+h2,
+h3 {
+  margin: 0 0 12px;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.card {
+  background: color-mix(in srgb, var(--panel), white 20%);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  backdrop-filter: blur(2px);
+}
+
+.lift {
+  box-shadow: 0 14px 34px rgba(21, 43, 54, 0.09);
+  transition: transform 180ms ease;
+}
+
+.lift:hover {
+  transform: translateY(-2px);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+.gap {
+  gap: 8px;
+}
+
+.grid {
+  display: grid;
+  gap: 9px;
+}
+
+.grid.two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.grid.three {
+  grid-template-columns: 2fr 2fr 1fr;
+}
+
+input,
+select,
+button {
+  border: 1px solid #cbb7a1;
+  border-radius: 10px;
+  font: inherit;
+  padding: 10px 11px;
+}
+
+button {
+  border: none;
+  background: linear-gradient(115deg, var(--accent), #f28d54);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: linear-gradient(115deg, var(--accent-2), #4f8a8f);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tableWrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 12px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+th,
+td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.pickRow {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.list li {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.muted {
+  color: #59686f;
+}
+
+.statusBar {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, 90vw);
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(25, 33, 38, 0.9);
+  color: #e8eef0;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 0.9rem;
+}
+
+.error {
+  color: #ffb6b6;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .columns,
+  .grid.two,
+  .grid.three {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topNav {
+    width: 100%;
+  }
+
+  .statusBar {
+    border-radius: 16px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+
+.nbaPickBoard {
+  margin-top: 6px;
+}
+
+.nbaGameCard {
+  display: grid;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nbaTeamButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.teamPickBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(236, 210, 155, 0.4);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #111111;
+  font-weight: 700;
+  text-align: left;
+}
+
+.teamPickBtn.selected {
+  border-color: #ffd483;
+  box-shadow: 0 0 0 2px rgba(255, 212, 131, 0.25) inset;
+  background: rgba(255, 205, 103, 0.18);
+  color: #111111;
+}
+
+.teamPickBtn:disabled {
+  opacity: 0.7;
+}
+
+.teamLogo {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  flex: 0 0 30px;
+}
+
+@media (max-width: 900px) {
+  .nbaTeamButtons {
+    grid-template-columns: 1fr;
+  }
+}
+
+.saveCheck {
+  margin-left: auto;
+  color: #1aa34a;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.olympicBracketBoard {
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.olympicBracketGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  gap: 12px;
+  overflow: auto;
+  padding-bottom: 4px;
+}
+
+.olympicColumn {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.olympicStage {
+  margin: 0;
+  text-align: center;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+  color: #e7e9ee;
+  text-decoration: underline;
+}
+
+.olympicGameCard {
+  display: grid;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.olympicMeta {
+  font-size: 0.82rem;
+}
+
+.olympicTeamButtons {
+  display: grid;
+  gap: 8px;
+}
+
+.flagBadge {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  flex: 0 0 24px;
+}
+
+@media (max-width: 1100px) {
+  .olympicBracketGrid {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .olympicBracketGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.olympicBracketBoard {
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.olympicBracketGrid {
+  grid-template-columns: repeat(5, minmax(210px, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.olympicColumn {
+  position: relative;
+  min-height: 100%;
+}
+
+.olympicColumn[data-stage="0"] .olympicGameCard,
+.olympicColumn[data-stage="1"] .olympicGameCard,
+.olympicColumn[data-stage="2"] .olympicGameCard {
+  margin-bottom: 22px;
+}
+
+.olympicColumn[data-stage="3"] .olympicGameCard,
+.olympicColumn[data-stage="4"] .olympicGameCard {
+  margin-bottom: 14px;
+}
+
+.olympicGameCard {
+  position: relative;
+  overflow: visible;
+}
+
+.olympicColumn[data-stage="0"] .olympicGameCard::after,
+.olympicColumn[data-stage="1"] .olympicGameCard::after,
+.olympicColumn[data-stage="2"] .olympicGameCard::after,
+.olympicColumn[data-stage="3"] .olympicGameCard::after {
+  content: "";
+  position: absolute;
+  right: -16px;
+  top: 50%;
+  width: 16px;
+  height: 2px;
+  background: rgba(214, 225, 237, 0.8);
+}
+
+.olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="0"]::before,
+.olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="2"]::before,
+.olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="0"]::before,
+.olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="2"]::before,
+.olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="0"]::before {
+  content: "";
+  position: absolute;
+  right: -16px;
+  top: 50%;
+  width: 2px;
+  height: 64px;
+  background: rgba(214, 225, 237, 0.8);
+}
+
+.olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="1"]::before,
+.olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="3"]::before,
+.olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="1"]::before,
+.olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="3"]::before,
+.olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="1"]::before {
+  content: "";
+  position: absolute;
+  right: -16px;
+  top: calc(50% - 64px);
+  width: 2px;
+  height: 64px;
+  background: rgba(214, 225, 237, 0.8);
+}
+
+.olympicMeta {
+  color: #d6dde4;
+}
+
+.olympicStage {
+  color: #f3dfb1;
+  background: rgba(8, 8, 8, 0.7);
+  border: 1px solid rgba(215, 175, 95, 0.45);
+  border-radius: 6px;
+  padding: 5px 8px;
+  text-decoration: none;
+}
+
+.flagBadge {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+}
+
+/* Olympic bracket layout refinement */
+.olympicBracketBoard .olympicBracketGrid {
+  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  min-width: 1180px;
+  gap: 28px;
+  padding: 6px 2px 18px;
+}
+
+.olympicBracketBoard .olympicColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.olympicBracketBoard .olympicStage {
+  margin-bottom: 14px;
+}
+
+.olympicBracketBoard .olympicGameCard {
+  background: #e9ecef;
+  border: 1px solid #adb5bd;
+  border-radius: 0;
+  padding: 6px;
+}
+
+.olympicBracketBoard .olympicMeta {
+  color: #263746;
+  font-size: 0.84rem;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+
+.olympicBracketBoard .olympicGameCard .teamPickBtn {
+  background: #f3f4f6;
+  border: 1px solid #aeb5bd;
+  border-radius: 0;
+  color: #101418;
+  font-weight: 700;
+  min-height: 38px;
+}
+
+.olympicBracketBoard .olympicGameCard .teamPickBtn.selected {
+  border-color: #ffd483;
+  box-shadow: 0 0 0 2px rgba(255, 212, 131, 0.25) inset;
+  background: rgba(255, 205, 103, 0.18);
+  color: #111111;
+}
+
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="0"] { margin-top: 24px; }
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="1"] { margin-top: 80px; }
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="2"] { margin-top: 80px; }
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="3"] { margin-top: 80px; }
+
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="0"] { margin-top: 86px; }
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="1"] { margin-top: 202px; }
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="2"] { margin-top: 82px; }
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="3"] { margin-top: 202px; }
+
+.olympicBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="0"] { margin-top: 176px; }
+.olympicBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="1"] { margin-top: 226px; }
+
+.olympicBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard[data-game-index="0"] { margin-top: 290px; }
+.olympicBracketBoard .olympicColumn[data-stage="4"] .olympicGameCard[data-game-index="0"] { margin-top: 380px; }
+
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard::after,
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard::after,
+.olympicBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard::after,
+.olympicBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard::after {
+  right: -28px;
+  width: 28px;
+  background: #d5dde6;
+}
+
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="0"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="2"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="0"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="2"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="0"]::before {
+  right: -28px;
+  height: 90px;
+  background: #d5dde6;
+}
+
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="1"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="3"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="1"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="3"]::before,
+.olympicBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="1"]::before {
+  right: -28px;
+  top: calc(50% - 90px);
+  height: 90px;
+  background: #d5dde6;
+}
+
+@media (max-width: 1200px) {
+  .olympicBracketBoard .olympicBracketGrid {
+    min-width: 1100px;
+  }
+}
+
+@media (max-width: 900px) {
+  .olympicBracketBoard .olympicBracketGrid {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .olympicBracketBoard .olympicGameCard,
+  .olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard,
+  .olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard,
+  .olympicBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard,
+  .olympicBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard,
+  .olympicBracketBoard .olympicColumn[data-stage="4"] .olympicGameCard {
+    margin-top: 0;
+  }
+
+  .olympicBracketBoard .olympicGameCard::before,
+  .olympicBracketBoard .olympicGameCard::after {
+    display: none;
+  }
+}
+
+/* Finals in shared right column */
+.olympicBracketBoard .olympicBracketGrid {
+  grid-template-columns: repeat(4, minmax(240px, 1fr));
+  min-width: 1040px;
+}
+
+.olympicBracketBoard .olympicStage.subStage {
+  margin-top: 52px;
+}
+
+.olympicBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard[data-game-index="0"] {
+  margin-top: 290px;
+}
+
+.olympicBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard[data-game-index="1"] {
+  margin-top: 170px;
+}
+
+.olympicBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard::after {
+  display: none;
+}
+
+/* Align qualification and quarter-final rows */
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="0"] { margin-top: 24px; }
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="1"] { margin-top: 80px; }
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="2"] { margin-top: 80px; }
+.olympicBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="3"] { margin-top: 80px; }
+
+.olympicBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard::before {
+  display: none;
+}
+
+.pickPct {
+  font-size: 0.74rem;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
+.saveMiss {
+  margin-left: auto;
+  color: #c73333;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.contestNameLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0c2d4f;
+  text-decoration: underline;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.contestNameLink:hover {
+  color: #164b7a;
+}
+
+.leaderboardRank {
+  color: #4a5560;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.leaderboardHeader {
+  display: grid;
+  grid-template-columns: 80px 1fr 110px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--line);
+  color: #46555f;
+  font-weight: 800;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.leaderboardList {
+  margin-top: 0;
+}
+
+.leaderboardRow {
+  display: grid !important;
+  grid-template-columns: 80px 1fr 110px auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.leaderboardRow .contestNameLink {
+  justify-self: start;
+  text-align: left;
+}
+
+.leaderboardPercentile {
+  justify-self: center;
+  color: #3f4f5a;
+  font-weight: 700;
+}
+
+.leaderboardTopOneToggle {
+  margin: 6px 0 2px;
+}
+
+.leaderboardTopOneToggle input {
+  width: 16px;
+  height: 16px;
+}
+
+.leaderboardTopOneToggle label {
+  color: #233746;
+  font-weight: 700;
+}
+
+.topOneBadge {
+  margin-left: 18px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(26, 163, 74, 0.14);
+  border: 1px solid rgba(26, 163, 74, 0.35);
+  color: #1a7d47;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+
+
+.entryBadge {
+  margin-left: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.entryBadge.entered {
+  color: #146534;
+  background: rgba(28, 181, 89, 0.14);
+  border: 1px solid rgba(28, 181, 89, 0.35);
+}
+
+.entryBadge.notEntered {
+  color: #a31c1c;
+  background: rgba(220, 48, 48, 0.12);
+  border: 1px solid rgba(220, 48, 48, 0.3);
+}
+
+
+.topOneGlobalHeader {
+  display: grid;
+  grid-template-columns: 80px 1fr 180px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--line);
+  color: #46555f;
+  font-weight: 800;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.topOneGlobalList {
+  margin-top: 0;
+}
+
+.topOneGlobalRow {
+  display: grid !important;
+  grid-template-columns: 80px 1fr 180px;
+  align-items: center;
+  gap: 8px;
+}
+
+
+.countdownBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #5f430f;
+  background: rgba(255, 224, 144, 0.28);
+  border: 1px solid rgba(205, 156, 60, 0.4);
+}
+
+
+.flagLogo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex: 0 0 24px;
+}
+
+.teamIconFallback {
+  display: none;
+}
+
+/* UEFA-specific bracket spacing so rounds align with feeder matchups */
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="0"] { margin-top: 24px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="1"] { margin-top: 38px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="2"] { margin-top: 38px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="3"] { margin-top: 38px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="4"] { margin-top: 38px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="5"] { margin-top: 38px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="6"] { margin-top: 38px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="7"] { margin-top: 38px !important; }
+
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="0"] { margin-top: 66px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="1"] { margin-top: 114px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="2"] { margin-top: 114px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="3"] { margin-top: 114px !important; }
+
+.uefaBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="0"] { margin-top: 152px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="1"] { margin-top: 214px !important; }
+
+.uefaBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard[data-game-index="0"] { margin-top: 262px !important; }
+
+@media (max-width: 900px) {
+  .uefaBracketBoard .olympicGameCard,
+  .uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard,
+  .uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard,
+  .uefaBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard,
+  .uefaBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard {
+    margin-top: 0 !important;
+  }
+}
+
+/* UEFA alignment tuning pass 2: move rounds lower to center on feeder matchups */
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="0"] { margin-top: 46px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="1"] { margin-top: 46px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="2"] { margin-top: 46px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="3"] { margin-top: 46px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="4"] { margin-top: 46px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="5"] { margin-top: 46px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="6"] { margin-top: 46px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="7"] { margin-top: 46px !important; }
+
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="0"] { margin-top: 122px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="1"] { margin-top: 176px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="2"] { margin-top: 176px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="3"] { margin-top: 176px !important; }
+
+.uefaBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="0"] { margin-top: 248px !important; }
+.uefaBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="1"] { margin-top: 276px !important; }
+
+.uefaBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard[data-game-index="0"] { margin-top: 356px !important; }
+
+/* UEFA deterministic bracket alignment (row-track based) */
+.uefaBracketBoard .olympicBracketGrid {
+  grid-template-columns: repeat(4, minmax(250px, 1fr)) !important;
+  min-width: 1120px !important;
+  align-items: start;
+}
+
+.uefaBracketBoard .olympicColumn {
+  display: block !important;
+}
+
+.uefaBracketBoard .olympicStageSection {
+  display: grid;
+  grid-template-rows: auto repeat(16, minmax(46px, auto));
+  row-gap: 10px;
+}
+
+.uefaBracketBoard .olympicGameCard {
+  margin-top: 0 !important;
+}
+
+/* Round of 16 */
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="0"] { grid-row: 2; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="1"] { grid-row: 4; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="2"] { grid-row: 6; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="3"] { grid-row: 8; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="4"] { grid-row: 10; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="5"] { grid-row: 12; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="6"] { grid-row: 14; }
+.uefaBracketBoard .olympicColumn[data-stage="0"] .olympicGameCard[data-game-index="7"] { grid-row: 16; }
+
+/* Quarter-finals (centered between R16 feeders) */
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="0"] { grid-row: 3; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="1"] { grid-row: 7; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="2"] { grid-row: 11; }
+.uefaBracketBoard .olympicColumn[data-stage="1"] .olympicGameCard[data-game-index="3"] { grid-row: 15; }
+
+/* Semi-finals (centered between QF feeders) */
+.uefaBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="0"] { grid-row: 5; }
+.uefaBracketBoard .olympicColumn[data-stage="2"] .olympicGameCard[data-game-index="1"] { grid-row: 13; }
+
+/* Final (centered between SF feeders) */
+.uefaBracketBoard .olympicColumn[data-stage="3"] .olympicGameCard[data-game-index="0"] { grid-row: 9; }
+
+@media (max-width: 900px) {
+  .uefaBracketBoard .olympicStageSection {
+    display: block;
+  }
+
+  .uefaBracketBoard .olympicGameCard {
+    margin-top: 0 !important;
+  }
+}
+
+/* UEFA classic 16-team bracket layout */
+.uefaClassicBoard .uefaClassicBracket {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(250px, 1fr));
+  gap: 46px;
+  min-width: 1160px;
+  overflow: auto;
+  padding: 8px 2px 18px;
+}
+
+.uefaClassicBoard .uefaClassicCol {
+  display: grid;
+  grid-template-rows: auto repeat(16, minmax(44px, auto));
+  row-gap: 10px;
+  position: relative;
+}
+
+.uefaClassicBoard .uefaClassicCol .olympicStage {
+  margin-bottom: 8px;
+}
+
+.uefaClassicBoard .uefaClassicGame {
+  margin-top: 0 !important;
+  position: relative;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaHasRightStub::after {
+  content: "";
+  position: absolute;
+  right: -24px;
+  top: 50%;
+  width: 24px;
+  height: 2px;
+  background: #d5dde6;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaHasLeftStub::before {
+  content: "";
+  position: absolute;
+  left: -24px;
+  top: 50%;
+  width: 24px;
+  height: 2px;
+  background: #d5dde6;
+}
+
+.uefaClassicBoard .uefaClassicGame .uefaJoin {
+  position: absolute;
+  right: -24px;
+  width: 2px;
+  background: #d5dde6;
+}
+
+.uefaClassicBoard .uefaClassicGame .uefaJoin.uefaJoinTop {
+  top: 50%;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-r16 .uefaJoin.uefaJoinTop {
+  height: 54px;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-r16 .uefaJoin.uefaJoinBottom {
+  top: calc(50% - 54px);
+  height: 54px;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-qf .uefaJoin.uefaJoinTop {
+  height: 108px;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-qf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - 108px);
+  height: 108px;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-sf .uefaJoin.uefaJoinTop {
+  height: 216px;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-sf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - 216px);
+  height: 216px;
+}
+
+@media (max-width: 900px) {
+  .uefaClassicBoard .uefaClassicBracket {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    gap: 14px;
+  }
+
+  .uefaClassicBoard .uefaClassicCol {
+    display: block;
+  }
+
+  .uefaClassicBoard .uefaClassicGame {
+    margin-top: 0 !important;
+  }
+
+  .uefaClassicBoard .uefaClassicGame::before,
+  .uefaClassicBoard .uefaClassicGame::after,
+  .uefaClassicBoard .uefaClassicGame .uefaJoin {
+    display: none;
+  }
+}
+
+/* UEFA connector calibration: ensure lines fully connect to each box */
+.uefaClassicBoard .uefaClassicBracket {
+  --uefa-row: 118px;
+  --uefa-gap: 12px;
+  column-gap: 46px;
+}
+
+.uefaClassicBoard .uefaClassicCol {
+  grid-template-rows: auto repeat(16, var(--uefa-row));
+  row-gap: var(--uefa-gap);
+}
+
+.uefaClassicBoard .uefaClassicGame {
+  align-self: stretch;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaHasRightStub::after {
+  right: -25px;
+  width: 25px;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaHasLeftStub::before {
+  left: -25px;
+  width: 25px;
+}
+
+.uefaClassicBoard .uefaClassicGame .uefaJoin {
+  right: -25px;
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-r16 .uefaJoin.uefaJoinTop {
+  height: calc(var(--uefa-row) + var(--uefa-gap));
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-r16 .uefaJoin.uefaJoinBottom {
+  top: calc(50% - (var(--uefa-row) + var(--uefa-gap)));
+  height: calc(var(--uefa-row) + var(--uefa-gap));
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-qf .uefaJoin.uefaJoinTop {
+  height: calc((var(--uefa-row) + var(--uefa-gap)) * 2);
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-qf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - ((var(--uefa-row) + var(--uefa-gap)) * 2));
+  height: calc((var(--uefa-row) + var(--uefa-gap)) * 2);
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-sf .uefaJoin.uefaJoinTop {
+  height: calc((var(--uefa-row) + var(--uefa-gap)) * 4);
+}
+
+.uefaClassicBoard .uefaClassicGame.uefaRound-sf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - ((var(--uefa-row) + var(--uefa-gap)) * 4));
+  height: calc((var(--uefa-row) + var(--uefa-gap)) * 4);
+}
+
+/* UEFA box sizing fix: ensure both teams fit fully inside each matchup card */
+.uefaClassicBoard .uefaClassicBracket {
+  --uefa-row: 154px;
+}
+
+.uefaClassicBoard .uefaClassicGame {
+  min-height: calc(var(--uefa-row) - 4px);
+}
+
+.uefaClassicBoard .uefaClassicGame .olympicMeta {
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.uefaClassicBoard .uefaClassicGame .olympicTeamButtons {
+  gap: 6px;
+}
+
+.uefaClassicBoard .uefaClassicGame .teamPickBtn {
+  min-height: 42px;
+}
+
+
+/* UEFA text fit: keep both teams fully inside each matchup box */
+.uefaClassicBoard .uefaClassicGame .teamPickBtn {
+  min-height: 40px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.uefaClassicBoard .uefaClassicGame .uefaTeamName {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.uefaClassicBoard .uefaClassicGame .pickPct {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+.errorInline {
+  color: #b62828;
+  font-weight: 600;
+}
+
+.spotSummary .card p {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.entryStatsBar {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(214, 165, 74, 0.55);
+  background: linear-gradient(135deg, rgba(8, 8, 8, 0.88), rgba(38, 28, 12, 0.86));
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 226, 160, 0.14);
+}
+
+.entryStat {
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.entryStatLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e6c980;
+  font-weight: 700;
+}
+
+.entryStatValue {
+  font-size: 1.28rem;
+  line-height: 1.05;
+  font-weight: 800;
+  color: #fff2cb;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.entryStatDivider {
+  width: 1px;
+  height: 34px;
+  background: linear-gradient(180deg, rgba(214, 165, 74, 0.1), rgba(214, 165, 74, 0.75), rgba(214, 165, 74, 0.1));
+}
+
+@media (max-width: 700px) {
+  .entryStatsBar {
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .entryStat {
+    min-width: 0;
+  }
+
+  .entryStatValue {
+    font-size: 1.08rem;
+  }
+}
+
+.conferenceChampionsBoard {
+  margin-top: 8px;
+  display: grid;
+  gap: 10px;
+}
+
+.conferenceChampionRow {
+  background: rgba(255, 255, 255, 0.09);
+  display: grid;
+  gap: 8px;
+}
+
+.conferenceHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.conferenceSelectRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.conferenceSelectRow select {
+  background: #f9f3ea;
+  color: #101418;
+}
+
+
+.entryBadge.incomplete {
+  color: #8a5a00;
+  background: rgba(245, 185, 30, 0.2);
+  border: 1px solid rgba(220, 160, 22, 0.45);
+}
+
+.leaderboardNameCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.miniBtn {
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  border-radius: 8px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.statsTile {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.statsTile strong {
+  font-size: 1.05rem;
+}
+
+/* March Madness 64-team bracket layout */
+.march64Board {
+  --march-row: 154px;
+  --march-gap-y: 10px;
+  --march-gap-x: 36px;
+  --march-line: 2px;
+  --march-stub: 22px;
+  --march-overlap: 2px;
+}
+
+.march64Board .march64Grid {
+  display: grid;
+  gap: var(--march-gap-x);
+  overflow: auto;
+  padding: 8px 2px 18px;
+}
+
+.march64Board .march64GridRegion {
+  grid-template-columns: repeat(4, minmax(260px, 1fr));
+  min-width: 1180px;
+  --march-row: 132px;
+  --march-gap-y: 8px;
+}
+
+.march64Board .march64GridFinal {
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  min-width: 680px;
+  --march-row: 154px;
+  --march-gap-y: 10px;
+}
+
+.march64Board .march64Col {
+  display: grid;
+  position: relative;
+}
+
+.march64Board .march64GridRegion .march64Col {
+  grid-template-rows: auto repeat(16, var(--march-row));
+  row-gap: var(--march-gap-y);
+}
+
+.march64Board .march64GridFinal .march64Col {
+  grid-template-rows: auto repeat(4, var(--march-row));
+  row-gap: var(--march-gap-y);
+}
+
+.march64Board .march64Stage {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-height: 40px;
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  color: #1f1608;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #ffe3a2 0%, #d4a248 100%);
+  border: 1px solid #9a6b22;
+  box-shadow: 0 2px 10px rgba(58, 38, 10, 0.2);
+}
+
+.march64Toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.march64ControlGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.miniBtn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.march64Scroller {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.march64Board .marchGame {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(96px, 1fr);
+  gap: 8px;
+  margin-top: 0 !important;
+  height: calc(var(--march-row) - 2px);
+  min-height: calc(var(--march-row) - 2px);
+  align-self: stretch;
+  box-sizing: border-box;
+  padding: 10px;
+  z-index: 1;
+}
+
+.march64Board .march64GridRegion .marchGame {
+  grid-template-rows: auto minmax(82px, 1fr);
+  gap: 6px;
+  height: calc(var(--march-row) - 2px);
+  min-height: calc(var(--march-row) - 2px);
+  padding: 8px;
+}
+
+.march64Board .march64GridRegion .marchGame .olympicTeamButtons {
+  grid-template-rows: repeat(2, minmax(38px, 1fr));
+  gap: 6px;
+}
+
+.march64Board .march64GridRegion .marchGame .teamPickBtn {
+  min-height: 38px;
+  padding: 7px 9px;
+}
+
+.march64Board .marchGame .olympicMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: start;
+  margin-bottom: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #1f1608;
+  font-weight: 700;
+  background: linear-gradient(180deg, #f6e3b4 0%, #d9b66f 100%);
+  border: 1px solid #9a6b22;
+}
+
+.march64Board .marchGame .olympicTeamButtons {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(44px, 1fr));
+  align-content: stretch;
+  gap: 8px;
+}
+
+.march64Board .marchGame .teamPickBtn {
+  min-height: 44px;
+  height: 100%;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.march64Board .marchGame .teamPickBtn > span:first-child,
+.march64Board .marchGame .uefaTeamName {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.march64Board .marchGame .pickPct {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+/* Single-sided connector model: horizontal stub + vertical join from current round only. */
+.march64Board .march64Col:not(:first-child) .marchGame::before {
+  content: none !important;
+}
+
+.march64Board .march64Col:not(:last-child) .marchGame::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - (var(--march-line) / 2));
+  right: calc(-1 * var(--march-stub));
+  width: var(--march-stub);
+  height: var(--march-line);
+  background: #d5dde6;
+  z-index: 0;
+}
+
+.march64Board .marchGame .marchJoin {
+  position: absolute;
+  right: calc(-1 * var(--march-stub));
+  width: var(--march-line);
+  background: #d5dde6;
+  z-index: 0;
+}
+
+.march64Board .marchGame .marchJoinTop {
+  top: calc(50% - var(--march-overlap));
+}
+
+.march64Board .marchGame .marchJoinBottom {
+  top: calc(50% - var(--march-join-height) + var(--march-overlap));
+}
+
+.march64Board .marchGame.marchRound-r64 { --march-join-height: calc(var(--march-row) + var(--march-gap-y)); }
+.march64Board .marchGame.marchRound-r32 { --march-join-height: calc((var(--march-row) + var(--march-gap-y)) * 2); }
+.march64Board .marchGame.marchRound-s16 { --march-join-height: calc((var(--march-row) + var(--march-gap-y)) * 4); }
+.march64Board .marchGame.marchRound-e8 { --march-join-height: calc((var(--march-row) + var(--march-gap-y)) * 8); }
+.march64Board .marchGame.marchRound-f4 { --march-join-height: calc(var(--march-row) + var(--march-gap-y)); }
+
+.march64Board .marchGame.marchRound-r64 .marchJoin,
+.march64Board .marchGame.marchRound-r32 .marchJoin,
+.march64Board .marchGame.marchRound-s16 .marchJoin,
+.march64Board .marchGame.marchRound-e8 .marchJoin,
+.march64Board .marchGame.marchRound-f4 .marchJoin {
+  height: calc(var(--march-join-height) + var(--march-overlap));
+}
+
+@media (max-width: 900px) {
+  .march64Board .march64Grid {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    gap: 14px;
+  }
+
+  .march64Toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .march64Board .march64Col {
+    display: block;
+  }
+
+  .march64Board .marchGame::before,
+  .march64Board .marchGame::after,
+  .march64Board .marchGame .marchJoin {
+    display: none;
+  }
+}
+
+/* UEFA bracket layout: single source of truth */
+.uefaClassicBoard:not(.march64Board) .uefaClassicBracket {
+  --uefa-row: 160px;
+  --uefa-gap: 12px;
+  --uefa-col-gap: 36px;
+  --uefa-line: 2px;
+  --uefa-stub: 36px;
+  --uefa-overlap: 2px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(250px, 1fr));
+  column-gap: var(--uefa-col-gap);
+  min-width: 1120px;
+  padding: 8px 2px 18px;
+  overflow: auto;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicCol {
+  display: grid;
+  grid-template-rows: auto repeat(16, var(--uefa-row));
+  row-gap: var(--uefa-gap);
+  position: relative;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicCol .olympicStage {
+  margin-bottom: 8px;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame {
+  position: relative;
+  margin-top: 0 !important;
+  height: calc(var(--uefa-row) - 2px);
+  min-height: calc(var(--uefa-row) - 2px);
+  align-self: stretch;
+  z-index: 1;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame .olympicMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #161007;
+  font-weight: 800;
+  background: linear-gradient(180deg, #f5dfad 0%, #d7ae5d 100%);
+  border: 1px solid #8f6320;
+  text-shadow: none;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame .olympicTeamButtons {
+  gap: 6px;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame .teamPickBtn {
+  min-height: 42px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame .uefaTeamName {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame .pickPct {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaHasLeftStub::before {
+  content: none !important;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaHasRightStub::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - (var(--uefa-line) / 2));
+  right: calc(-1 * var(--uefa-stub));
+  width: var(--uefa-stub);
+  height: var(--uefa-line);
+  background: #d5dde6;
+  z-index: 0;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame .uefaJoin {
+  position: absolute;
+  right: calc(-1 * var(--uefa-stub));
+  width: var(--uefa-line);
+  background: #d5dde6;
+  z-index: 0;
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame .uefaJoin.uefaJoinTop {
+  top: calc(50% - var(--uefa-overlap));
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaRound-r16 .uefaJoin.uefaJoinTop {
+  height: calc(var(--uefa-row) + var(--uefa-gap) + var(--uefa-overlap));
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaRound-r16 .uefaJoin.uefaJoinBottom {
+  top: calc(50% - (var(--uefa-row) + var(--uefa-gap)) + var(--uefa-overlap));
+  height: calc(var(--uefa-row) + var(--uefa-gap) + var(--uefa-overlap));
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaRound-qf .uefaJoin.uefaJoinTop {
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 2) + var(--uefa-overlap));
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaRound-qf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - ((var(--uefa-row) + var(--uefa-gap)) * 2) + var(--uefa-overlap));
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 2) + var(--uefa-overlap));
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaRound-sf .uefaJoin.uefaJoinTop {
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 4) + var(--uefa-overlap));
+}
+
+.uefaClassicBoard:not(.march64Board) .uefaClassicGame.uefaRound-sf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - ((var(--uefa-row) + var(--uefa-gap)) * 4) + var(--uefa-overlap));
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 4) + var(--uefa-overlap));
+}
+
+@media (max-width: 900px) {
+  .uefaClassicBoard:not(.march64Board) .uefaClassicBracket {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    gap: 14px;
+  }
+
+  .uefaClassicBoard:not(.march64Board) .uefaClassicCol {
+    display: block;
+  }
+
+  .uefaClassicBoard:not(.march64Board) .uefaClassicGame::before,
+  .uefaClassicBoard:not(.march64Board) .uefaClassicGame::after,
+  .uefaClassicBoard:not(.march64Board) .uefaClassicGame .uefaJoin {
+    display: none;
+  }
+}
+
+
+/* Isolated UEFA bracket layout */
+.uefaIsoBoard .uefaIsoBracket {
+  --uefa-row: 152px;
+  --uefa-gap: 12px;
+  --uefa-col-gap: 36px;
+  --uefa-line: 2px;
+  --uefa-stub: 20px;
+  --uefa-overlap: 2px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(242px, 1fr));
+  column-gap: var(--uefa-col-gap);
+  min-width: 1080px;
+  padding: 8px 2px 18px;
+  overflow: auto;
+}
+
+.uefaIsoBoard .uefaIsoCol {
+  display: grid;
+  grid-template-rows: auto repeat(16, var(--uefa-row));
+  row-gap: var(--uefa-gap);
+  position: relative;
+}
+
+.uefaIsoBoard .uefaIsoCol .olympicStage {
+  margin: 0 0 8px;
+}
+
+.uefaIsoBoard .uefaIsoGame {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(90px, 1fr);
+  gap: 8px;
+  margin-top: 0 !important;
+  height: calc(var(--uefa-row) - 2px);
+  min-height: calc(var(--uefa-row) - 2px);
+  width: calc(100% - 10px);
+  justify-self: start;
+  align-self: stretch;
+  box-sizing: border-box;
+  padding: 10px;
+  z-index: 1;
+}
+
+.uefaIsoBoard .uefaIsoGame .olympicMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: start;
+  margin-bottom: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #161007;
+  font-weight: 800;
+  background: linear-gradient(180deg, #f5dfad 0%, #d7ae5d 100%);
+  border: 1px solid #8f6320;
+  text-shadow: none;
+}
+
+.uefaIsoBoard .uefaIsoGame .olympicTeamButtons {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(42px, 1fr));
+  align-content: stretch;
+  gap: 8px;
+}
+
+.uefaIsoBoard .uefaIsoGame .teamPickBtn {
+  min-height: 42px;
+  height: 100%;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.uefaIsoBoard .uefaIsoGame .uefaTeamName {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.uefaIsoBoard .uefaIsoGame .pickPct {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+.uefaIsoBoard .uefaIsoCol[data-stage='qf'] .uefaIsoGame,
+.uefaIsoBoard .uefaIsoCol[data-stage='sf'] .uefaIsoGame,
+.uefaIsoBoard .uefaIsoCol[data-stage='final'] .uefaIsoGame {
+  margin-left: 12px;
+  width: calc(100% - 18px);
+  justify-self: start;
+}
+
+.uefaIsoBoard .uefaIsoCol[data-stage='sf'] .uefaIsoGame,
+.uefaIsoBoard .uefaIsoCol[data-stage='final'] .uefaIsoGame {
+  margin-left: 24px;
+  width: calc(100% - 30px);
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaHasLeftStub::before {
+  content: none !important;
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaHasRightStub::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - (var(--uefa-line) / 2));
+  right: calc(-1 * var(--uefa-stub));
+  width: var(--uefa-stub);
+  height: var(--uefa-line);
+  background: #d5dde6;
+  z-index: 0;
+}
+
+.uefaIsoBoard .uefaIsoGame .uefaJoin {
+  position: absolute;
+  right: calc(-1 * var(--uefa-stub));
+  width: var(--uefa-line);
+  background: #d5dde6;
+  z-index: 0;
+}
+
+.uefaIsoBoard .uefaIsoGame .uefaJoin.uefaJoinTop {
+  top: calc(50% - var(--uefa-overlap));
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaRound-r16 .uefaJoin.uefaJoinTop {
+  height: calc(var(--uefa-row) + var(--uefa-gap) + var(--uefa-overlap));
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaRound-r16 .uefaJoin.uefaJoinBottom {
+  top: calc(50% - (var(--uefa-row) + var(--uefa-gap)) + var(--uefa-overlap));
+  height: calc(var(--uefa-row) + var(--uefa-gap) + var(--uefa-overlap));
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaRound-qf .uefaJoin.uefaJoinTop {
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 2) + var(--uefa-overlap));
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaRound-qf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - ((var(--uefa-row) + var(--uefa-gap)) * 2) + var(--uefa-overlap));
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 2) + var(--uefa-overlap));
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaRound-sf .uefaJoin.uefaJoinTop {
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 4) + var(--uefa-overlap));
+}
+
+.uefaIsoBoard .uefaIsoGame.uefaRound-sf .uefaJoin.uefaJoinBottom {
+  top: calc(50% - ((var(--uefa-row) + var(--uefa-gap)) * 4) + var(--uefa-overlap));
+  height: calc(((var(--uefa-row) + var(--uefa-gap)) * 4) + var(--uefa-overlap));
+}
+
+@media (max-width: 900px) {
+  .uefaIsoBoard .uefaIsoBracket {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    gap: 14px;
+  }
+
+  .uefaIsoBoard .uefaIsoCol {
+    display: block;
+  }
+
+  .uefaIsoBoard .uefaIsoCol[data-stage='qf'] .uefaIsoGame,
+  .uefaIsoBoard .uefaIsoCol[data-stage='sf'] .uefaIsoGame,
+  .uefaIsoBoard .uefaIsoCol[data-stage='final'] .uefaIsoGame {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .uefaIsoBoard .uefaIsoGame::before,
+  .uefaIsoBoard .uefaIsoGame::after,
+  .uefaIsoBoard .uefaIsoGame .uefaJoin {
+    display: none;
+  }
+}
+
+
+/* UEFA final card alignment tweak */
+.uefaIsoBoard .uefaIsoCol[data-stage='final'] .uefaIsoGame {
+  margin-left: 40px;
+  width: calc(100% - 46px);
+}
+
+.contestListMain {
+  display: grid;
+  gap: 4px;
+}
+
+.contestTimingLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.84rem;
+  color: #59686f;
+}
+
+.groupSelectRow {
+  margin-top: 16px;
+}
+
+.uefaTiebreakerCard {
+  margin-top: 14px;
+}
+
+.uefaTiebreakerCard input {
+  max-width: 220px;
+}
+
+.adminStatusCard {
+  margin-bottom: 14px;
+}
+
+.adminStatusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.adminStatusItem {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(212, 165, 74, 0.18);
+}
+
+.adminStatusLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 242, 203, 0.72);
+}
+
+.adminStatusOk {
+  color: #9fe3ae;
+}
+
+.adminStatusBad {
+  color: #ff9b9b;
+}
+
+.adminStatusWarn {
+  color: #f3d47b;
+}

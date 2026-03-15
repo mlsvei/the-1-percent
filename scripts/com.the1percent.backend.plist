@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.the1percent.backend</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>mkdir -p '/Applications/Codex stuff/.runlogs' &amp;&amp; cd '/Applications/Codex stuff/backend' &amp;&amp; ./node_modules/.bin/tsx src/index.ts</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Applications/Codex stuff/backend</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Applications/Codex stuff/.runlogs/launchd-backend.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Applications/Codex stuff/.runlogs/launchd-backend.err.log</string>
+</dict>
+</plist>

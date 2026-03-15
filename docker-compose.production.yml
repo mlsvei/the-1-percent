@@ -1,0 +1,20 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env.production
+    ports:
+      - "4001:4000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-https://api.the1percent.app/api}
+    ports:
+      - "5174:8080"
+    restart: unless-stopped
+    depends_on:
+      - backend

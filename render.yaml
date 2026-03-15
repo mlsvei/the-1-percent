@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: the1-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: INGEST_ENABLED
+        value: true
+      - key: INGEST_INTERVAL_SECONDS
+        value: 60
+      - key: INGEST_INCLUDE_BRACKET_AUTO
+        value: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SPORTSDATAIO_API_KEY
+        sync: false
+      - key: SPORTSDATAAPI_KEY
+        sync: false

@@ -1,0 +1,78 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">The 1% logo</title>
+  <desc id="desc">Ornate black and gold crest logo with crown and single THE 1% wordmark.</desc>
+  <defs>
+    <linearGradient id="goldMain" x1="170" y1="100" x2="1030" y2="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF8D6"/>
+      <stop offset="0.22" stop-color="#F9DF95"/>
+      <stop offset="0.48" stop-color="#D9A944"/>
+      <stop offset="0.72" stop-color="#B67B22"/>
+      <stop offset="1" stop-color="#F2D47E"/>
+    </linearGradient>
+    <linearGradient id="goldEdge" x1="280" y1="170" x2="870" y2="540" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFEFB4"/>
+      <stop offset="0.5" stop-color="#D49C36"/>
+      <stop offset="1" stop-color="#9E671D"/>
+    </linearGradient>
+    <linearGradient id="goldSheen" x1="540" y1="130" x2="700" y2="590" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF6CC" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFD970" stop-opacity="0.15"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(600 350) rotate(90) scale(340 620)">
+      <stop offset="0" stop-color="#1B1B1B"/>
+      <stop offset="0.68" stop-color="#060606"/>
+      <stop offset="1" stop-color="#000000"/>
+    </radialGradient>
+    <filter id="goldGlow" x="0" y="0" width="1200" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#FFE39A" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+
+  <g filter="url(#goldGlow)" fill="none" stroke="url(#goldMain)" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(600 118)">
+      <path d="M-150 58C-122 35-113 8-106-16C-76 12-50 22-25 30C-20 2-10-14 0-30C10-14 20 2 25 30C50 22 76 12 106-16C113 8 122 35 150 58" stroke-width="11"/>
+      <path d="M-176 66C-128 47-63 43 0 43C63 43 128 47 176 66" stroke-width="13"/>
+      <path d="M-165 66L-140 95M165 66L140 95" stroke-width="7"/>
+      <path d="M-96 53L-84 20L-72 53M-48 47L-36 14L-24 47M0 43L14 8L28 43M48 47L60 14L72 47M96 53L108 20L120 53" stroke-width="5"/>
+      <circle cx="-96" cy="55" r="5" fill="url(#goldEdge)"/>
+      <circle cx="-48" cy="48" r="5" fill="url(#goldEdge)"/>
+      <circle cx="0" cy="43" r="6" fill="url(#goldEdge)"/>
+      <circle cx="48" cy="48" r="5" fill="url(#goldEdge)"/>
+      <circle cx="96" cy="55" r="5" fill="url(#goldEdge)"/>
+    </g>
+
+    <g transform="translate(600 286)">
+      <path d="M-372 114C-346 60-301 24-250 6C-205-10-171-8-127 11C-157 22-188 48-197 70C-175 59-145 54-114 68C-86 80-65 104-56 134C-86 118-120 113-153 121C-194 132-216 158-238 191C-263 160-290 136-327 128C-347 124-366 127-382 136C-378 126-374 120-372 114Z" stroke-width="8"/>
+      <path d="M372 114C346 60 301 24 250 6C205-10 171-8 127 11C157 22 188 48 197 70C175 59 145 54 114 68C86 80 65 104 56 134C86 118 120 113 153 121C194 132 216 158 238 191C263 160 290 136 327 128C347 124 366 127 382 136C378 126 374 120 372 114Z" stroke-width="8"/>
+
+      <path d="M-329 124C-295 107-273 96-232 91" stroke-width="5.5"/>
+      <path d="M329 124C295 107 273 96 232 91" stroke-width="5.5"/>
+      <path d="M-290 159C-257 137-223 121-181 116" stroke-width="6"/>
+      <path d="M290 159C257 137 223 121 181 116" stroke-width="6"/>
+      <path d="M-208 186C-170 153-140 131-98 124" stroke-width="5.2"/>
+      <path d="M208 186C170 153 140 131 98 124" stroke-width="5.2"/>
+      <path d="M-120 170C-95 126-69 93-22 73" stroke-width="7"/>
+      <path d="M120 170C95 126 69 93 22 73" stroke-width="7"/>
+    </g>
+
+    <g transform="translate(600 358)">
+      <path d="M-268 108C-188 82-93 67 0 67C93 67 188 82 268 108" stroke-width="7"/>
+      <path d="M-192 130C-126 110-66 100 0 100C66 100 126 110 192 130" stroke-width="4" opacity="0.85"/>
+      <path d="M-34 120L0 96L34 120" stroke-width="5"/>
+    </g>
+
+    <g transform="translate(600 622)">
+      <path d="M-352 0H-34L0 -23L34 0H352" stroke-width="6"/>
+      <path d="M-56 0L0 -44L56 0" stroke-width="6"/>
+      <path d="M-21 -10L0 -26L21 -10" stroke-width="3.6"/>
+    </g>
+  </g>
+
+  <g filter="url(#goldGlow)">
+    <text x="600" y="534" text-anchor="middle" fill="url(#goldMain)" font-family="'Times New Roman', 'Cinzel', serif" font-size="128" font-weight="700" letter-spacing="4">THE 1%</text>
+    <text x="600" y="534" text-anchor="middle" fill="url(#goldSheen)" font-family="'Times New Roman', 'Cinzel', serif" font-size="128" font-weight="700" letter-spacing="4">THE 1%</text>
+  </g>
+</svg>

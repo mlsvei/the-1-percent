@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/.vite
+**/.DS_Store
+.git
+.gitignore
+.runlogs
+*.log
+frontend/.env
+frontend/.env.development
+backend/.env
+backend/.env.local
+Codex stuff-backup-*.tar.gz
