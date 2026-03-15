@@ -42,6 +42,7 @@ function readCsvLowercase(key: string): string[] {
 
 export const config = {
   port: Number(readEnv('PORT', '4000')),
+  host: readOptionalEnv('HOST', '0.0.0.0'),
   databaseUrl: readOptionalEnv('DATABASE_URL', 'memory://local'),
   creatorEmails: readCsvLowercase('APP_CREATOR_EMAILS'),
   sportsDataIo: {

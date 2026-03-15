@@ -39,8 +39,8 @@ async function start() {
   const worker = startIngestWorker();
   stopIngestWorker = worker.stop;
 
-  app.listen(config.port, '127.0.0.1', () => {
-    console.log(`Backend listening on http://127.0.0.1:${config.port}`);
+  app.listen(config.port, config.host, () => {
+    console.log(`Backend listening on http://${config.host}:${config.port}`);
   });
 }
 
