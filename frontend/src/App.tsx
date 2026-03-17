@@ -112,8 +112,6 @@ const MARCH_MADNESS_SEEDS: Record<string, number> = {
   'Idaho': 15
 };
 
-};
-
 const NCAAB_CONFERENCE_TEAMS: Array<{ conference: string; slot: string; teams: string[] }> = [
   { conference: 'America East', slot: 'CONF_AE', teams: ['Albany', 'Binghamton', 'Bryant', 'Maine', 'NJIT', 'UMass Lowell', 'New Hampshire', 'UMBC', 'Vermont'] },
   { conference: 'American Athletic', slot: 'CONF_AAC', teams: ['Charlotte', 'East Carolina', 'Florida Atlantic', 'Memphis', 'North Texas', 'Rice', 'South Florida', 'Temple', 'Tulane', 'Tulsa', 'UAB', 'UTSA'] },
