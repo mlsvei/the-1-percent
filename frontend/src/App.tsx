@@ -546,7 +546,7 @@ function countdownWithin24h(iso: string | undefined, nowMs: number): string | nu
 }
 
 type ContestSportFilter = 'ALL' | 'Basketball' | 'Olympics' | 'Football' | 'Hockey' | 'Baseball' | 'Soccer';
-type MarchRegionView = 'WEST' | 'EAST' | 'NORTH' | 'SOUTH' | 'FINAL_FOUR';
+type MarchRegionView = 'WEST' | 'EAST' | 'MIDWEST' | 'SOUTH' | 'FINAL_FOUR';
 
 function contestTypeLabel(contest: Pick<Contest, 'type' | 'name'>): string {
   if (contest.type === 'PICKEM_NFL') return "NFL Pick'em";
@@ -1320,7 +1320,7 @@ export default function App() {
   function marchRegionIndex(region: MarchRegionView): number {
     if (region === 'WEST') return 0;
     if (region === 'EAST') return 1;
-    if (region === 'NORTH') return 2;
+    if (region === 'MIDWEST') return 2;
     if (region === 'SOUTH') return 3;
     return 0;
   }
@@ -3188,7 +3188,7 @@ export default function App() {
                           <select value={marchRegionView} onChange={(event) => setMarchRegionView(event.target.value as MarchRegionView)}>
                             <option value="WEST">West Region</option>
                             <option value="EAST">East Region</option>
-                            <option value="NORTH">North Region</option>
+                            <option value="MIDWEST">Midwest Region</option>
                             <option value="SOUTH">South Region</option>
                             <option value="FINAL_FOUR">Final Four</option>
                           </select>
