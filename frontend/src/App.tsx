@@ -45,6 +45,73 @@ const LEADERBOARD_TOP_ONE_OPTION = '__TOP_ONE_ALL__';
 
 const PLANNED_UPCOMING_CONTESTS = [] as const;
 
+const MARCH_MADNESS_SEEDS: Record<string, number> = {
+  'Florida': 1,
+  'Norfolk State': 16,
+  'UConn': 8,
+  'Oklahoma': 9,
+  'Memphis': 5,
+  'Colorado State': 12,
+  'Maryland': 4,
+  'Grand Canyon': 13,
+  'Missouri': 6,
+  'Drake': 11,
+  'Texas Tech': 3,
+  'UNC Wilmington': 14,
+  'Kansas': 7,
+  'Arkansas': 10,
+  "St. John's": 2,
+  'Omaha': 15,
+  'Duke': 1,
+  "American / Mount St. Mary's": 16,
+  'Mississippi State': 8,
+  'Baylor': 9,
+  'Oregon': 5,
+  'Liberty': 12,
+  'Arizona': 4,
+  'Akron': 13,
+  "Saint Mary's": 7,
+  'VCU': 11,
+  'Wisconsin': 3,
+  'Montana': 14,
+  'BYU': 6,
+  'Vanderbilt': 10,
+  'Alabama': 2,
+  'Robert Morris': 15,
+  'Houston': 1,
+  'SIU Edwardsville': 16,
+  'Gonzaga': 8,
+  'Georgia': 9,
+  'Clemson': 5,
+  'McNeese': 12,
+  'Purdue': 4,
+  'High Point': 13,
+  'Illinois': 6,
+  'Texas / Xavier': 11,
+  'Kentucky': 3,
+  'Troy': 14,
+  'UCLA': 7,
+  'Utah State': 10,
+  'Tennessee': 2,
+  'Wofford': 15,
+  'Auburn': 1,
+  'Alabama State / Saint Francis': 16,
+  'Louisville': 8,
+  'Creighton': 9,
+  'Michigan': 5,
+  'UC San Diego': 12,
+  'Texas A&M': 4,
+  'Yale': 13,
+  'Ole Miss': 6,
+  'North Carolina / San Diego State': 11,
+  'Iowa State': 3,
+  'Lipscomb': 14,
+  'Marquette': 7,
+  'New Mexico': 10,
+  'Michigan State': 2,
+  'Bryant': 15
+};
+
 const NCAAB_CONFERENCE_TEAMS: Array<{ conference: string; slot: string; teams: string[] }> = [
   { conference: 'America East', slot: 'CONF_AE', teams: ['Albany', 'Binghamton', 'Bryant', 'Maine', 'NJIT', 'UMass Lowell', 'New Hampshire', 'UMBC', 'Vermont'] },
   { conference: 'American Athletic', slot: 'CONF_AAC', teams: ['Charlotte', 'East Carolina', 'Florida Atlantic', 'Memphis', 'North Texas', 'Rice', 'South Florida', 'Temple', 'Tulane', 'Tulsa', 'UAB', 'UTSA'] },
@@ -1242,6 +1309,12 @@ export default function App() {
 
     const sourceSlot = match[1].toUpperCase();
     return savedBracketBySlot.get(sourceSlot) ?? teamName;
+  }
+
+  function formatMarchTeamLabel(teamName: string): string {
+    const resolved = marchResolveTeamName(teamName);
+    const seed = MARCH_MADNESS_SEEDS[resolved];
+    return seed ? `${seed} ${resolved}` : resolved;
   }
 
   function marchRegionIndex(region: MarchRegionView): number {
@@ -3143,8 +3216,8 @@ export default function App() {
                             <article key={round.key} id={'march-round-' + round.key} className="march64Col">
                               <h4 className="olympicStage march64Stage">{round.label}</h4>
                               {round.rows.map((game, gameIndex) => {
-                                const awayName = marchResolveTeamName(game.awayTeam);
-                                const homeName = marchResolveTeamName(game.homeTeam);
+                                const awayName = formatMarchTeamLabel(game.awayTeam);
+                                const homeName = formatMarchTeamLabel(game.homeTeam);
                                 const savedWinner = savedBracketBySlot.get(game.providerGameId);
                                 const savedRow = savedBracketRowBySlot.get(game.providerGameId);
                                 const awayResult =
