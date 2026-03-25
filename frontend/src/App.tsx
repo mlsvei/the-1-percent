@@ -39,7 +39,8 @@ type OlympicBracketGame = {
   teams: [OlympicBracketTeam, OlympicBracketTeam];
 };
 
-const USER_KEY = 'sports_contest_user_id';
+const AUTH_TOKEN_KEY = 'sports_contest_auth_token';
+const LEGACY_USER_KEY = 'sports_contest_user_id';
 const CREATOR_EMAIL = 'mlsvei2121@gmail.com';
 const LEADERBOARD_TOP_ONE_OPTION = '__TOP_ONE_ALL__';
 
@@ -913,9 +914,13 @@ function toCsvValue(value: string | number): string {
 }
 
 export default function App() {
-  const [userId, setUserId] = useState<string>(localStorage.getItem(USER_KEY) ?? '');
+  const [authToken, setAuthToken] = useState<string>(localStorage.getItem(AUTH_TOKEN_KEY) ?? '');
+  const [userId, setUserId] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
 
   const [status, setStatus] = useState('Ready.');
@@ -1411,14 +1416,14 @@ export default function App() {
   }
 
   async function openParticipantContestEntry(contestId: string, participantUserId: string) {
-    if (!userId) return;
+    if (!authToken) return;
 
     setError('');
     setLeaderboardEntryContestId(contestId);
     setIsLeaderboardEntryLoading(true);
 
     try {
-      const data = await api.contestantEntry(userId, contestId, participantUserId);
+      const data = await api.contestantEntry(authToken, contestId, participantUserId);
       setContestViewEntry(data);
       setSelectedContestId(contestId);
       setContestPageId(contestId);
@@ -1473,8 +1478,8 @@ export default function App() {
     setIsPopularGroupsLoading(true);
     try {
       const [publicData, privateData] = await Promise.all([
-        api.publicGroups(userId, contestId),
-        api.privateGroupNames(userId, contestId)
+        api.publicGroups(authToken, contestId),
+        api.privateGroupNames(authToken, contestId)
       ]);
       setPopularPublicGroups(publicData.groups);
       setPrivateGroupNames(privateData.groups);
@@ -1485,18 +1490,20 @@ export default function App() {
     }
   }
 
-  async function refreshAll(activeUserId = userId, contestId: string | null = selectedContestId || null) {
-    if (!activeUserId) return;
+  async function refreshAll(activeAuthToken = authToken, contestId: string | null = selectedContestId || null) {
+    if (!activeAuthToken) return;
 
-    const me = await api.me(activeUserId);
+    const me = await api.me(activeAuthToken);
     const isCreator = me.email.trim().toLowerCase() === CREATOR_EMAIL;
 
     const [contestData, groupData, entryData] = await Promise.all([
-      isCreator ? api.adminContests(activeUserId) : api.contests(),
-      api.groups(activeUserId, contestId ?? undefined),
-      api.entriesMe(activeUserId)
+      isCreator ? api.adminContests(activeAuthToken) : api.contests(),
+      api.groups(activeAuthToken, contestId ?? undefined),
+      api.entriesMe(activeAuthToken)
     ]);
 
+    setUserId(me.id);
+    setDisplayName(me.displayName);
     setContests(contestData.contests);
     setGroups(groupData.groups);
     setEntries(entryData.entries);
@@ -1504,9 +1511,9 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!userId) return;
+    if (!authToken) return;
     refreshAll().catch((err: Error) => setError(err.message));
-  }, [userId]);
+  }, [authToken]);
 
 
   useEffect(() => {
@@ -1537,7 +1544,7 @@ export default function App() {
     let active = true;
 
     if (
-      !userId ||
+      !authToken ||
       activeTopPage !== 'leaderboards' ||
       !selectedLeaderboardContestId ||
       selectedLeaderboardContestId === LEADERBOARD_TOP_ONE_OPTION
@@ -1577,7 +1584,7 @@ export default function App() {
   useEffect(() => {
     const contestIdForPublicGroups = activeTopPage === 'groups' ? selectedGroupContestId : activeTopPage === 'contest' ? selectedContestId : '';
 
-    if (!userId || !contestIdForPublicGroups) {
+    if (!authToken || !contestIdForPublicGroups) {
       setPopularPublicGroups([]);
       setPrivateGroupNames([]);
       setIsPopularGroupsLoading(false);
@@ -1590,7 +1597,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    if (!userId || activeTopPage !== 'contest' || !selectedContestId) {
+    if (!authToken || activeTopPage !== 'contest' || !selectedContestId) {
       return () => {
         active = false;
       };
@@ -1615,7 +1622,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    if (!userId || activeTopPage !== 'leaderboards') {
+    if (!authToken || activeTopPage !== 'leaderboards') {
       setIsTopOneAggregateLoading(false);
       return () => {
         active = false;
@@ -1683,7 +1690,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    if (!userId) return () => {
+    if (!authToken) return () => {
       active = false;
     };
 
@@ -1717,7 +1724,7 @@ export default function App() {
   }, [userId, selectedContestId, selectedGroupContestId, activeTopPage, selectedGroupId]);
 
   useEffect(() => {
-    if (!userId || activeTopPage !== 'contest' || !contestPageId || !selectedContest || !isContestCreator) {
+    if (!authToken || activeTopPage !== 'contest' || !contestPageId || !selectedContest || !isContestCreator) {
       setBackendHealth(null);
       setDatabaseHealth(null);
       setWorkerHealth(null);
@@ -1860,8 +1867,8 @@ export default function App() {
       try {
         if (selectedContest.type === 'BRACKET_NCAAM') {
           const [data, tiebreakerData] = await Promise.all([
-            api.getBracket(userId, selectedContestId, selectedEntry.id),
-            api.getEntryTiebreaker(userId, selectedContestId, selectedEntry.id).catch(() => ({ tiebreaker: null }))
+            api.getBracket(authToken, selectedContestId, selectedEntry.id),
+            api.getEntryTiebreaker(authToken, selectedContestId, selectedEntry.id).catch(() => ({ tiebreaker: null }))
           ]);
           if (!active) return;
           setSavedBracket(data.picks);
@@ -1869,7 +1876,7 @@ export default function App() {
           return;
         }
 
-        const data = await api.getPicks(userId, selectedContestId, selectedEntry.id);
+        const data = await api.getPicks(authToken, selectedContestId, selectedEntry.id);
         if (!active) return;
         setSavedPicks(data.picks);
       } catch (err) {
@@ -1906,10 +1913,44 @@ export default function App() {
     e.preventDefault();
     setError('');
     try {
-      const login = await api.login(email, displayName);
-      localStorage.setItem(USER_KEY, login.userId);
-      setUserId(login.userId);
-      setStatus('Logged in.');
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setError('Enter your email.');
+        return;
+      }
+      if (!password) {
+        setError('Enter your password.');
+        return;
+      }
+
+      let auth;
+      if (authMode === 'register') {
+        if (!displayName.trim()) {
+          setError('Enter a display name.');
+          return;
+        }
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters.');
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError('Passwords do not match.');
+          return;
+        }
+        auth = await api.register(normalizedEmail, password, displayName.trim());
+      } else {
+        auth = await api.login(normalizedEmail, password);
+      }
+
+      localStorage.setItem(AUTH_TOKEN_KEY, auth.token);
+      localStorage.removeItem(LEGACY_USER_KEY);
+      setAuthToken(auth.token);
+      setUserId(auth.user.id);
+      setDisplayName(auth.user.displayName);
+      setCurrentUserEmail(auth.user.email);
+      setPassword('');
+      setConfirmPassword('');
+      setStatus(authMode === 'register' ? 'Account created.' : 'Logged in.');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -1928,10 +1969,10 @@ export default function App() {
         setError('Private groups require a password with at least 4 characters.');
         return;
       }
-      await api.createGroup(userId, contestId, groupName, groupVisibility, groupVisibility === 'PRIVATE' ? groupPassword.trim() : undefined);
+      await api.createGroup(authToken, contestId, groupName, groupVisibility, groupVisibility === 'PRIVATE' ? groupPassword.trim() : undefined);
       setGroupName('');
       setGroupPassword('');
-      await refreshAll(userId, contestId || null);
+      await refreshAll(authToken, contestId || null);
       await refreshPopularGroups(contestId);
       setStatus(groupVisibility === 'PRIVATE' ? 'Private group created.' : 'Public group created.');
     } catch (err) {
@@ -1953,9 +1994,9 @@ export default function App() {
         setError('Enter the exact public group name.');
         return;
       }
-      await api.joinGroup(userId, contestId, matchedGroup.id);
+      await api.joinGroup(authToken, contestId, matchedGroup.id);
       setPublicGroupName('');
-      await refreshAll(userId, contestId);
+      await refreshAll(authToken, contestId);
       await refreshPopularGroups(contestId);
       setStatus('Joined public group.');
     } catch (err) {
@@ -1980,10 +2021,10 @@ export default function App() {
         setError('Enter the private group password.');
         return;
       }
-      await api.joinPrivateGroup(userId, contestId, privateGroupName.trim(), privateGroupPassword.trim());
+      await api.joinPrivateGroup(authToken, contestId, privateGroupName.trim(), privateGroupPassword.trim());
       setPrivateGroupName('');
       setPrivateGroupPassword('');
-      await refreshAll(userId, contestId);
+      await refreshAll(authToken, contestId);
       await refreshPopularGroups(contestId);
       setStatus('Joined private group.');
     } catch (err) {
@@ -2006,7 +2047,7 @@ export default function App() {
 
     setError('');
     try {
-      await api.saveEntryTiebreaker(userId, selectedContestId, selectedEntry.id, {
+      await api.saveEntryTiebreaker(authToken, selectedContestId, selectedEntry.id, {
         prompt: 'How many combined total goals will be scored in the knockout stage? (15 games)',
         answer: trimmed,
         numericGuess
@@ -2020,8 +2061,8 @@ export default function App() {
   async function onJoinPopularGroup(contestId: string, groupId: string) {
     setError('');
     try {
-      await api.joinGroup(userId, contestId, groupId);
-      await refreshAll(userId, contestId);
+      await api.joinGroup(authToken, contestId, groupId);
+      await refreshAll(authToken, contestId);
       await refreshPopularGroups(contestId);
       setStatus('Joined group.');
     } catch (err) {
@@ -2037,7 +2078,7 @@ export default function App() {
     if (!selectedContestId) return;
     setError('');
     try {
-      await api.createEntry(userId, selectedContestId);
+      await api.createEntry(authToken, selectedContestId);
       await refreshAll();
       setStatus('Entry created.');
     } catch (err) {
@@ -2060,18 +2101,18 @@ export default function App() {
     setPickDraft(nextDraft);
 
     try {
-      await api.createEntry(userId, selectedContestId).catch(() => undefined);
+      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
 
       const payload = games
         .filter((g) => nextDraft[g.id]?.pickedWinner)
         .map((g) => ({ gameId: g.id, pickedWinner: nextDraft[g.id].pickedWinner }));
 
-      await api.submitPicks(userId, selectedContestId, payload);
-      const entryData = await api.entriesMe(userId);
+      await api.submitPicks(authToken, selectedContestId, payload);
+      const entryData = await api.entriesMe(authToken);
       setEntries(entryData.entries);
       const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
       if (entry) {
-        const saved = await api.getPicks(userId, selectedContestId, entry.id);
+        const saved = await api.getPicks(authToken, selectedContestId, entry.id);
         setSavedPicks(saved.picks);
       }
       await refreshPickPercentages(selectedContestId);
@@ -2086,7 +2127,7 @@ export default function App() {
     setError('');
 
     try {
-      await api.createEntry(userId, selectedContestId).catch(() => undefined);
+      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
 
       const next = new Map(savedBracketBySlot);
       next.set(gameSlot, pickedTeam);
@@ -2105,13 +2146,13 @@ export default function App() {
           round: roundBySlot[slot] ?? round
         }));
 
-      await api.submitBracket(userId, selectedContestId, payload);
+      await api.submitBracket(authToken, selectedContestId, payload);
 
-      const entryData = await api.entriesMe(userId);
+      const entryData = await api.entriesMe(authToken);
       setEntries(entryData.entries);
       const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
       if (entry) {
-        const saved = await api.getBracket(userId, selectedContestId, entry.id);
+        const saved = await api.getBracket(authToken, selectedContestId, entry.id);
         setSavedBracket(saved.picks);
       }
 
@@ -2128,7 +2169,7 @@ export default function App() {
     setError('');
 
     try {
-      await api.createEntry(userId, selectedContestId).catch(() => undefined);
+      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
 
       const next = new Map(savedBracketBySlot);
       next.set(slot, pickedTeam);
@@ -2140,13 +2181,13 @@ export default function App() {
 
       if (payload.length === 0) return;
 
-      await api.submitBracket(userId, selectedContestId, payload);
+      await api.submitBracket(authToken, selectedContestId, payload);
 
-      const entryData = await api.entriesMe(userId);
+      const entryData = await api.entriesMe(authToken);
       setEntries(entryData.entries);
       const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
       if (entry) {
-        const saved = await api.getBracket(userId, selectedContestId, entry.id);
+        const saved = await api.getBracket(authToken, selectedContestId, entry.id);
         setSavedBracket(saved.picks);
       }
 
@@ -2171,7 +2212,7 @@ export default function App() {
     setError('');
 
     try {
-      await api.createEntry(userId, selectedContestId).catch(() => undefined);
+      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
 
       const next = new Map(savedBracketBySlot);
       next.set(gameSlot, pickedTeam);
@@ -2190,13 +2231,13 @@ export default function App() {
           round: marchMadnessRoundForSlot(slot)
         }));
 
-      await api.submitBracket(userId, selectedContestId, payload);
+      await api.submitBracket(authToken, selectedContestId, payload);
 
-      const entryData = await api.entriesMe(userId);
+      const entryData = await api.entriesMe(authToken);
       setEntries(entryData.entries);
       const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
       if (entry) {
-        const saved = await api.getBracket(userId, selectedContestId, entry.id);
+        const saved = await api.getBracket(authToken, selectedContestId, entry.id);
         setSavedBracket(saved.picks);
       }
 
@@ -2223,9 +2264,9 @@ export default function App() {
               : undefined
         }));
 
-      await api.submitPicks(userId, selectedContestId, payload);
+      await api.submitPicks(authToken, selectedContestId, payload);
       if (selectedEntry) {
-        const saved = await api.getPicks(userId, selectedContestId, selectedEntry.id);
+        const saved = await api.getPicks(authToken, selectedContestId, selectedEntry.id);
         setSavedPicks(saved.picks);
       }
       await refreshPickPercentages(selectedContestId);
@@ -2248,7 +2289,7 @@ export default function App() {
           .map((row) => ({ gameSlot: row.gameSlot, pickedTeam: row.pickedTeam, round: Number(row.round) }))
       );
       if (selectedEntry) {
-        const saved = await api.getBracket(userId, selectedContestId, selectedEntry.id);
+        const saved = await api.getBracket(authToken, selectedContestId, selectedEntry.id);
         setSavedBracket(saved.picks);
       }
       await refreshPickPercentages(selectedContestId);
@@ -2271,14 +2312,14 @@ export default function App() {
     setError('');
     try {
       const startsAtIso = new Date(cloneStartsAt).toISOString();
-      const created = await api.cloneContest(userId, selectedContestId, {
+      const created = await api.cloneContest(authToken, selectedContestId, {
         name: cloneName.trim(),
         season,
         startsAt: startsAtIso,
         includeGames: cloneIncludeGames
       });
 
-      await refreshAll(userId, created.id);
+      await refreshAll(authToken, created.id);
       setStatus('Contest cloned.');
       openContestPage(created.id);
     } catch (err) {
@@ -2291,8 +2332,8 @@ export default function App() {
 
     setError('');
     try {
-      await api.setContestStatus(userId, selectedContestId, nextStatus);
-      await refreshAll(userId, selectedContestId);
+      await api.setContestStatus(authToken, selectedContestId, nextStatus);
+      await refreshAll(authToken, selectedContestId);
       setStatus(nextStatus === 'OPEN' ? 'Contest published.' : 'Contest moved to draft (hidden from users).');
     } catch (err) {
       setError((err as Error).message);
@@ -2304,15 +2345,15 @@ export default function App() {
 
     setError('');
     try {
-      const result = await api.runContestGrading(userId, selectedContestId);
-      await refreshAll(userId, selectedContestId);
+      const result = await api.runContestGrading(authToken, selectedContestId);
+      await refreshAll(authToken, selectedContestId);
 
       if (selectedEntry) {
         if (selectedContest?.type === 'BRACKET_NCAAM') {
-          const saved = await api.getBracket(userId, selectedContestId, selectedEntry.id);
+          const saved = await api.getBracket(authToken, selectedContestId, selectedEntry.id);
           setSavedBracket(saved.picks);
         } else {
-          const saved = await api.getPicks(userId, selectedContestId, selectedEntry.id);
+          const saved = await api.getPicks(authToken, selectedContestId, selectedEntry.id);
           setSavedPicks(saved.picks);
         }
       }
@@ -2342,7 +2383,7 @@ export default function App() {
     setError('');
 
     try {
-      await api.overrideGameResult(userId, selectedContestId, overrideProviderGameId, payload);
+      await api.overrideGameResult(authToken, selectedContestId, overrideProviderGameId, payload);
 
       const [gamesData, percentagesData] = await Promise.all([
         api.contestGames(selectedContestId),
@@ -2358,14 +2399,14 @@ export default function App() {
       }
       setPickPercentagesByKey(next);
 
-      await refreshAll(userId, selectedContestId);
+      await refreshAll(authToken, selectedContestId);
 
       if (selectedEntry) {
         if (selectedContest?.type === 'BRACKET_NCAAM') {
-          const saved = await api.getBracket(userId, selectedContestId, selectedEntry.id);
+          const saved = await api.getBracket(authToken, selectedContestId, selectedEntry.id);
           setSavedBracket(saved.picks);
         } else {
-          const saved = await api.getPicks(userId, selectedContestId, selectedEntry.id);
+          const saved = await api.getPicks(authToken, selectedContestId, selectedEntry.id);
           setSavedPicks(saved.picks);
         }
       }
@@ -2382,8 +2423,8 @@ export default function App() {
     setIsGroupLeaderboardLoading(true);
     try {
       const [groupData, contestData] = await Promise.all([
-        api.groupLeaderboard(userId, groupId, contestId),
-        api.contestLeaderboard(userId, contestId)
+        api.groupLeaderboard(authToken, groupId, contestId),
+        api.contestLeaderboard(authToken, contestId)
       ]);
       setSelectedGroupId(groupId);
       setSelectedGroupContestId(contestId);
@@ -2407,7 +2448,7 @@ export default function App() {
   }
 
   async function onOpenUserStats(targetUserId: string) {
-    if (!userId) return;
+    if (!authToken) return;
 
     const currentPage = activeTopPage === 'user-stats' ? statsReturnPage : activeTopPage;
     setStatsReturnPage(currentPage as 'home' | 'entries' | 'contest' | 'leaderboards' | 'groups');
@@ -2418,7 +2459,7 @@ export default function App() {
     setActiveTopPage('user-stats');
 
     try {
-      const data = await api.userStats(userId, targetUserId);
+      const data = await api.userStats(authToken, targetUserId);
       setSelectedUserStats(data);
       setStatus('User stats loaded.');
       setTimeout(() => scrollToSection('user-stats-page'), 0);
@@ -2431,14 +2472,14 @@ export default function App() {
   }
 
   async function onViewParticipantEntry(contestId: string, participantUserId: string) {
-    if (!userId) return;
+    if (!authToken) return;
 
     setError('');
     setLeaderboardEntryContestId(contestId);
     setIsLeaderboardEntryLoading(true);
 
     try {
-      const data = await api.contestantEntry(userId, contestId, participantUserId);
+      const data = await api.contestantEntry(authToken, contestId, participantUserId);
       setSelectedLeaderboardEntry(data);
       setStatus('Participant entry loaded.');
     } catch (err) {
@@ -2450,8 +2491,14 @@ export default function App() {
   }
 
   function logout() {
-    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_USER_KEY);
+    setAuthToken('');
     setUserId('');
+    setDisplayName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
     setCurrentUserEmail('');
     setContests([]);
     setGroups([]);
@@ -2527,13 +2574,27 @@ export default function App() {
         </nav>
       </header>
 
-      {!userId ? (
+      {!authToken ? (
         <section className="card lift">
-          <h2>Sign In</h2>
+          <h2>{authMode === 'login' ? 'Sign In' : 'Create Account'}</h2>
+          <div className="row gap" style={{ marginBottom: '1rem' }}>
+            <button type="button" className={authMode === 'login' ? '' : 'secondary'} onClick={() => { setAuthMode('login'); setError(''); }}>
+              Sign In
+            </button>
+            <button type="button" className={authMode === 'register' ? '' : 'secondary'} onClick={() => { setAuthMode('register'); setError(''); }}>
+              Create Account
+            </button>
+          </div>
           <form onSubmit={onLogin} className="grid">
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" required />
+            {authMode === 'register' ? (
+              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" required />
+            ) : null}
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
-            <button type="submit">Enter App</button>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
+            {authMode === 'register' ? (
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm password" required />
+            ) : null}
+            <button type="submit">{authMode === 'login' ? 'Enter App' : 'Create Account'}</button>
           </form>
         </section>
       ) : (
@@ -2541,7 +2602,7 @@ export default function App() {
           <section className="card row between" id="my-1">
             <div>
               <h2>Control Desk</h2>
-              <p>Signed in as <strong>{currentUserEmail || userId.slice(0, 8)}</strong></p>
+              <p>Signed in as <strong>{currentUserEmail || displayName || userId.slice(0, 8)}</strong></p>
             </div>
             <div className="row gap">
               <button onClick={() => refreshAll()} className="secondary">Refresh</button>

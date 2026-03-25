@@ -41,6 +41,7 @@ function readCsvLowercase(key: string): string[] {
 }
 
 export const config = {
+  nodeEnv: readOptionalEnv('NODE_ENV', 'development'),
   port: Number(readEnv('PORT', '4000')),
   host: readOptionalEnv('HOST', '0.0.0.0'),
   databaseUrl: readOptionalEnv('DATABASE_URL', 'memory://local'),
@@ -88,5 +89,9 @@ export const config = {
     enabled: readBoolEnv('INGEST_ENABLED', true),
     intervalSeconds: readNumberEnv('INGEST_INTERVAL_SECONDS', 30),
     includeBracketAutoIngest: readBoolEnv('INGEST_INCLUDE_BRACKET_AUTO', false)
+  },
+  jwt: {
+    secret: readOptionalEnv('APP_JWT_SECRET'),
+    tokenTtlHours: readNumberEnv('APP_JWT_TTL_HOURS', 24 * 30)
   }
 };

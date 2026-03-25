@@ -33,5 +33,5 @@ This is the browser UI for The 1%.
   - `VITE_API_BASE=https://api.the1percent.app/api`
 
 ## Notes
-- Uses dev-header auth flow from the backend (`x-user-id`).
+- Uses email/password auth with bearer JWT sessions from the backend.
 - For production, the frontend must point at a continuously running backend, not your Mac.

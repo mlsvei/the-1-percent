@@ -2,14 +2,14 @@ const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
 
 export type ApiError = { error?: string; detail?: string };
 
-async function request<T>(path: string, options: RequestInit = {}, userId?: string): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}, authToken?: string): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined)
   };
 
-  if (userId) {
-    headers['x-user-id'] = userId;
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
   }
 
   let response: Response;
@@ -249,16 +249,36 @@ export type UserStatsProfile = {
   recentContests: UserStatsContestRow[];
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  timezone: string;
+  createdAt?: string;
+};
+
+export type AuthResponse = {
+  token: string;
+  user: AuthUser;
+};
+
 export const api = {
-  async login(email: string, displayName: string, timezone = 'America/New_York') {
-    return request<{ userId: string }>('/auth/dev-login', {
+  async register(email: string, password: string, displayName: string, timezone = 'America/New_York') {
+    return request<AuthResponse>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, displayName, timezone })
+      body: JSON.stringify({ email, password, displayName, timezone })
     });
   },
 
-  async me(userId: string) {
-    return request<{ id: string; email: string; displayName: string }>('/auth/me', {}, userId);
+  async login(email: string, password: string) {
+    return request<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+  },
+
+  async me(authToken: string) {
+    return request<AuthUser>('/auth/me', {}, authToken);
   },
 
   async contests() {

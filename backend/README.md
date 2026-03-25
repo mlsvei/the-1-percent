@@ -3,7 +3,7 @@
 This backend powers contests, entries, groups, ingest, and grading.
 
 ## Core routes
-- Auth: `/api/auth/dev-login`, `/api/auth/me`
+- Auth: `/api/auth/register`, `/api/auth/login`, `/api/auth/me`
 - Users: `/api/users`
 - Groups: `/api/groups`
 - Contests: `/api/contests`
@@ -26,6 +26,11 @@ This backend powers contests, entries, groups, ingest, and grading.
    - `npm run db:bootstrap`
 6. Start API:
    - `npm run dev`
+
+## Authentication
+- Real auth uses email + password and bearer JWT sessions.
+- Set `APP_JWT_SECRET` explicitly in production.
+- Existing users can register with their existing email to attach a password without losing their saved entries.
 
 ## Production deployment
 - Docker image:
