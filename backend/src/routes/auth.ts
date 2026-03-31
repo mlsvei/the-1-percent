@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
-import { config } from '../config.js';
 import { query } from '../db.js';
 import { requireUser } from '../middleware/require-user.js';
 import { ensureAuthTables, hashPassword, issueAuthToken, verifyPassword } from '../services/auth.js';
@@ -140,37 +139,6 @@ authRouter.post('/auth/login', async (req, res) => {
   res.json(authResponse(user));
 });
 
-authRouter.post('/auth/dev-login', async (req, res) => {
-  if (config.nodeEnv === 'production') {
-    res.status(404).json({ error: 'Not found' });
-    return;
-  }
-
-  const parsed = devLoginSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.flatten() });
-    return;
-  }
-
-  const { email, displayName, timezone } = parsed.data;
-  const existing = await query<UserRow>(
-    'select id, email, display_name as "displayName", timezone, created_at as "createdAt" from users where email = $1 limit 1',
-    [email.trim().toLowerCase()]
-  );
-
-  let user = existing.rows[0];
-  if (!user) {
-    const id = randomUUID();
-    const createdAt = new Date().toISOString();
-    await query('insert into users (id, email, display_name, timezone, created_at) values ($1, $2, $3, $4, $5)', [id, email.trim().toLowerCase(), displayName, timezone, createdAt]);
-    user = { id, email: email.trim().toLowerCase(), displayName, timezone, createdAt };
-  } else {
-    await query('update users set display_name = $2, timezone = $3 where id = $1', [user.id, displayName, timezone]);
-    user = { ...user, displayName, timezone };
-  }
-
-  res.json(authResponse(user));
-});
 
 authRouter.get('/auth/me', requireUser, async (req: AuthenticatedRequest, res) => {
   const result = await query(

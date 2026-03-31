@@ -11,7 +11,7 @@ export async function requireContestCreator(req: AuthenticatedRequest, res: Resp
 
   if (config.creatorEmails.length === 0) {
     res.status(503).json({
-      error: 'Contest creation is disabled. Set APP_CREATOR_EMAILS in backend .env to enable creator access.'
+      error: 'Contest creation is disabled until APP_CREATOR_EMAILS is configured on the backend.'
     });
     return;
   }

@@ -19,7 +19,7 @@ async function request<T>(path: string, options: RequestInit = {}, authToken?: s
       headers
     });
   } catch {
-    throw new Error('Backend unavailable. Make sure the frontend and backend dev servers are both running.');
+    throw new Error('Backend unavailable. Check your API URL, browser network access, and backend status.');
   }
 
   const text = await response.text();
