@@ -1330,6 +1330,38 @@ export default function App() {
     };
   }
 
+  function pruneInvalidMarchPicks(picks: Map<string, string>, gameBySlot: Map<string, Game>): Map<string, string> {
+    const pruned = new Map(picks);
+    let changed = true;
+
+    while (changed) {
+      changed = false;
+
+      for (const [slot, team] of Array.from(pruned.entries())) {
+        const game = gameBySlot.get(slot);
+        if (!game) {
+          pruned.delete(slot);
+          changed = true;
+          continue;
+        }
+
+        const resolvedTeams = resolvedMarchGameTeams(game, pruned);
+        const isValid =
+          team === game.homeTeam ||
+          team === game.awayTeam ||
+          team === resolvedTeams.homeTeam ||
+          team === resolvedTeams.awayTeam;
+
+        if (!isValid) {
+          pruned.delete(slot);
+          changed = true;
+        }
+      }
+    }
+
+    return pruned;
+  }
+
   function formatMarchTeamLabel(teamName: string): string {
     const resolved = marchResolveTeamName(teamName);
     const seed = MARCH_MADNESS_SEEDS[resolved];
@@ -2232,19 +2264,9 @@ export default function App() {
       next.set(gameSlot, pickedTeam);
 
       const gameBySlot = new Map(games.map((game) => [game.providerGameId, game]));
+      const validPicks = pruneInvalidMarchPicks(next, gameBySlot);
 
-      const payload = Array.from(next.entries())
-        .filter(([slot, team]) => {
-          const game = gameBySlot.get(slot);
-          if (!game) return false;
-          const resolvedTeams = resolvedMarchGameTeams(game, next);
-          return (
-            team === game.homeTeam ||
-            team === game.awayTeam ||
-            team === resolvedTeams.homeTeam ||
-            team === resolvedTeams.awayTeam
-          );
-        })
+      const payload = Array.from(validPicks.entries())
         .map(([slot, team]) => ({
           gameSlot: slot,
           pickedTeam: team,
