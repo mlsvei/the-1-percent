@@ -1179,6 +1179,11 @@ export default function App() {
     return 'Pending';
   }
 
+  function bracketAutoClearStatus(baseMessage: string, clearedCount: number): string {
+    if (clearedCount <= 0) return baseMessage;
+    return `${baseMessage} Auto-cleared ${clearedCount} downstream ${clearedCount === 1 ? 'pick' : 'picks'}.`;
+  }
+
   function getOlympicGame(slot: string): OlympicBracketGame | undefined {
     return olympicGames.find((game) => game.slot === slot) ?? OLYMPIC_BASE_GAMES.find((game) => game.slot === slot);
   }
@@ -2191,6 +2196,7 @@ export default function App() {
           pickedTeam: team,
           round: roundBySlot[slot] ?? round
         }));
+      const clearedCount = next.size - payload.length;
 
       await api.submitBracket(authToken, selectedContestId, payload);
 
@@ -2203,7 +2209,7 @@ export default function App() {
       }
 
       await refreshPickPercentages(selectedContestId);
-      setStatus('Bracket selection saved automatically.');
+      setStatus(bracketAutoClearStatus('Bracket selection saved automatically.', clearedCount));
     } catch (err) {
       setError((err as Error).message);
     }
@@ -2272,6 +2278,7 @@ export default function App() {
           pickedTeam: team,
           round: marchMadnessRoundForSlot(slot)
         }));
+      const clearedCount = next.size - validPicks.size;
 
       await api.submitBracket(authToken, selectedContestId, payload);
 
@@ -2284,7 +2291,7 @@ export default function App() {
       }
 
       await refreshPickPercentages(selectedContestId);
-      setStatus('March Madness pick saved automatically.');
+      setStatus(bracketAutoClearStatus('March Madness pick saved automatically.', clearedCount));
     } catch (err) {
       setError((err as Error).message);
     }
