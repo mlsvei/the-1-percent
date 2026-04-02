@@ -1308,25 +1308,25 @@ export default function App() {
   }
 
 
-  function marchResolveTeamName(teamName: string, seenSlots = new Set<string>()): string {
+  function marchResolveTeamName(teamName: string, picks = savedBracketBySlot, seenSlots = new Set<string>()): string {
     const match = /^Winner\s+([A-Z0-9-]+)$/i.exec(teamName.trim());
     if (!match) return teamName;
 
     const sourceSlot = match[1].toUpperCase();
     if (seenSlots.has(sourceSlot)) return teamName;
 
-    const pickedTeam = savedBracketBySlot.get(sourceSlot);
+    const pickedTeam = picks.get(sourceSlot);
     if (!pickedTeam) return teamName;
 
     const nextSeenSlots = new Set(seenSlots);
     nextSeenSlots.add(sourceSlot);
-    return marchResolveTeamName(pickedTeam, nextSeenSlots);
+    return marchResolveTeamName(pickedTeam, picks, nextSeenSlots);
   }
 
-  function resolvedMarchGameTeams(game: Game): { awayTeam: string; homeTeam: string } {
+  function resolvedMarchGameTeams(game: Game, picks = savedBracketBySlot): { awayTeam: string; homeTeam: string } {
     return {
-      awayTeam: marchResolveTeamName(game.awayTeam),
-      homeTeam: marchResolveTeamName(game.homeTeam)
+      awayTeam: marchResolveTeamName(game.awayTeam, picks),
+      homeTeam: marchResolveTeamName(game.homeTeam, picks)
     };
   }
 
@@ -2237,10 +2237,7 @@ export default function App() {
         .filter(([slot, team]) => {
           const game = gameBySlot.get(slot);
           if (!game) return false;
-          const resolvedTeams = {
-            awayTeam: marchResolveTeamName(game.awayTeam),
-            homeTeam: marchResolveTeamName(game.homeTeam)
-          };
+          const resolvedTeams = resolvedMarchGameTeams(game, next);
           return (
             team === game.homeTeam ||
             team === game.awayTeam ||
