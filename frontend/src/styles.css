@@ -1277,7 +1277,7 @@ td {
 .march64Board {
   --march-row: 154px;
   --march-gap-y: 10px;
-  --march-gap-x: 36px;
+  --march-gap-x: 52px;
   --march-line: 2px;
   --march-stub: 22px;
   --march-overlap: 2px;
@@ -1291,8 +1291,8 @@ td {
 }
 
 .march64Board .march64GridRegion {
-  grid-template-columns: repeat(4, minmax(260px, 1fr));
-  min-width: 1180px;
+  grid-template-columns: repeat(4, minmax(280px, 1fr));
+  min-width: 1340px;
   --march-row: 132px;
   --march-gap-y: 8px;
 }
@@ -1425,10 +1425,13 @@ td {
 }
 
 .march64Board .marchGame .teamPickBtn {
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   height: 100%;
   padding: 8px 10px;
   gap: 8px;
+  overflow: hidden;
 }
 
 .march64Board .marchGame .teamPickBtn > span:first-child,
