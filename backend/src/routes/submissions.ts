@@ -269,6 +269,10 @@ submissionsRouter.post(
     try {
       await client.query('begin');
 
+      // Treat each bracket submission as the full current bracket state for the entry.
+      // This clears stale downstream picks after an upstream winner changes.
+      await client.query('delete from bracket_picks where entry_id = $1', [entryId]);
+
       for (const pick of parsed.data.picks) {
         await client.query(
           `insert into bracket_picks (id, entry_id, game_slot, picked_team, round)
