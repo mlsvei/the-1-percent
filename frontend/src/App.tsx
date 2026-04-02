@@ -1308,12 +1308,26 @@ export default function App() {
   }
 
 
-  function marchResolveTeamName(teamName: string): string {
+  function marchResolveTeamName(teamName: string, seenSlots = new Set<string>()): string {
     const match = /^Winner\s+([A-Z0-9-]+)$/i.exec(teamName.trim());
     if (!match) return teamName;
 
     const sourceSlot = match[1].toUpperCase();
-    return savedBracketBySlot.get(sourceSlot) ?? teamName;
+    if (seenSlots.has(sourceSlot)) return teamName;
+
+    const pickedTeam = savedBracketBySlot.get(sourceSlot);
+    if (!pickedTeam) return teamName;
+
+    const nextSeenSlots = new Set(seenSlots);
+    nextSeenSlots.add(sourceSlot);
+    return marchResolveTeamName(pickedTeam, nextSeenSlots);
+  }
+
+  function resolvedMarchGameTeams(game: Game): { awayTeam: string; homeTeam: string } {
+    return {
+      awayTeam: marchResolveTeamName(game.awayTeam),
+      homeTeam: marchResolveTeamName(game.homeTeam)
+    };
   }
 
   function formatMarchTeamLabel(teamName: string): string {
@@ -2223,7 +2237,16 @@ export default function App() {
         .filter(([slot, team]) => {
           const game = gameBySlot.get(slot);
           if (!game) return false;
-          return team === game.homeTeam || team === game.awayTeam;
+          const resolvedTeams = {
+            awayTeam: marchResolveTeamName(game.awayTeam),
+            homeTeam: marchResolveTeamName(game.homeTeam)
+          };
+          return (
+            team === game.homeTeam ||
+            team === game.awayTeam ||
+            team === resolvedTeams.homeTeam ||
+            team === resolvedTeams.awayTeam
+          );
         })
         .map(([slot, team]) => ({
           gameSlot: slot,
@@ -3277,18 +3300,19 @@ export default function App() {
                             <article key={round.key} id={'march-round-' + round.key} className="march64Col">
                               <h4 className="olympicStage march64Stage">{round.label}</h4>
                               {round.rows.map((game, gameIndex) => {
+                                const { awayTeam: resolvedAwayTeam, homeTeam: resolvedHomeTeam } = resolvedMarchGameTeams(game);
                                 const awayName = formatMarchTeamLabel(game.awayTeam);
                                 const homeName = formatMarchTeamLabel(game.homeTeam);
                                 const savedWinner = savedBracketBySlot.get(game.providerGameId);
                                 const savedRow = savedBracketRowBySlot.get(game.providerGameId);
                                 const awayResult =
-                                  savedRow?.pickedTeam === game.awayTeam && savedRow.isCorrect !== null
+                                  savedRow?.pickedTeam === resolvedAwayTeam && savedRow.isCorrect !== null
                                     ? savedRow.isCorrect
                                       ? <span className="saveCheck" aria-label="Correct">✓</span>
                                       : <span className="saveMiss" aria-label="Wrong">✕</span>
                                     : null;
                                 const homeResult =
-                                  savedRow?.pickedTeam === game.homeTeam && savedRow.isCorrect !== null
+                                  savedRow?.pickedTeam === resolvedHomeTeam && savedRow.isCorrect !== null
                                     ? savedRow.isCorrect
                                       ? <span className="saveCheck" aria-label="Correct">✓</span>
                                       : <span className="saveMiss" aria-label="Wrong">✕</span>
@@ -3307,22 +3331,22 @@ export default function App() {
                                     <div className="olympicTeamButtons">
                                       <button
                                         type="button"
-                                        className={'teamPickBtn ' + (savedWinner === game.awayTeam ? 'selected' : '')}
-                                        onClick={() => onSelectMarchMadnessTeam(game.providerGameId, game.awayTeam)}
+                                        className={'teamPickBtn ' + (savedWinner === resolvedAwayTeam ? 'selected' : '')}
+                                        onClick={() => onSelectMarchMadnessTeam(game.providerGameId, resolvedAwayTeam)}
                                         disabled={isSavedLoading || isViewingContestParticipantEntry}
                                       >
                                         <span>{awayName}</span>
-                                        <span className="pickPct">{pickPercentFor(game.providerGameId, game.awayTeam)}</span>
+                                        <span className="pickPct">{pickPercentFor(game.providerGameId, resolvedAwayTeam)}</span>
                                         {awayResult}
                                       </button>
                                       <button
                                         type="button"
-                                        className={'teamPickBtn ' + (savedWinner === game.homeTeam ? 'selected' : '')}
-                                        onClick={() => onSelectMarchMadnessTeam(game.providerGameId, game.homeTeam)}
+                                        className={'teamPickBtn ' + (savedWinner === resolvedHomeTeam ? 'selected' : '')}
+                                        onClick={() => onSelectMarchMadnessTeam(game.providerGameId, resolvedHomeTeam)}
                                         disabled={isSavedLoading || isViewingContestParticipantEntry}
                                       >
                                         <span>{homeName}</span>
-                                        <span className="pickPct">{pickPercentFor(game.providerGameId, game.homeTeam)}</span>
+                                        <span className="pickPct">{pickPercentFor(game.providerGameId, resolvedHomeTeam)}</span>
                                         {homeResult}
                                       </button>
                                     </div>
