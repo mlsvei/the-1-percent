@@ -1184,6 +1184,32 @@ export default function App() {
     return `${baseMessage} Auto-cleared ${clearedCount} downstream ${clearedCount === 1 ? 'pick' : 'picks'}.`;
   }
 
+  async function ensureContestEntry(contestId: string): Promise<{ entry: Entry; created: boolean }> {
+    const existingEntry = entries.find((entry) => entry.contestId === contestId);
+    if (existingEntry) {
+      return { entry: existingEntry, created: false };
+    }
+
+    let created = false;
+    try {
+      await api.createEntry(authToken, contestId);
+      created = true;
+    } catch (err) {
+      if (!(err instanceof Error) || !err.message.includes('Entry already exists')) {
+        throw err;
+      }
+    }
+
+    const entryData = await api.entriesMe(authToken);
+    setEntries(entryData.entries);
+    const entry = entryData.entries.find((candidate) => candidate.contestId === contestId);
+    if (!entry) {
+      throw new Error('Unable to load your contest entry. Try refreshing and then saving again.');
+    }
+
+    return { entry, created };
+  }
+
   function getOlympicGame(slot: string): OlympicBracketGame | undefined {
     return olympicGames.find((game) => game.slot === slot) ?? OLYMPIC_BASE_GAMES.find((game) => game.slot === slot);
   }
@@ -2084,7 +2110,7 @@ export default function App() {
   }
 
   async function onSaveUefaTiebreaker() {
-    if (!selectedContestId || !selectedEntry || isViewingContestParticipantEntry) return;
+    if (!selectedContestId || isViewingContestParticipantEntry) return;
     const trimmed = tiebreakerGuess.trim();
     if (!trimmed) {
       setError('Enter a tiebreaker guess.');
@@ -2098,7 +2124,8 @@ export default function App() {
 
     setError('');
     try {
-      await api.saveEntryTiebreaker(authToken, selectedContestId, selectedEntry.id, {
+      const { entry } = await ensureContestEntry(selectedContestId);
+      await api.saveEntryTiebreaker(authToken, selectedContestId, entry.id, {
         prompt: 'How many combined total goals will be scored in the knockout stage? (15 games)',
         answer: trimmed,
         numericGuess
@@ -2129,9 +2156,8 @@ export default function App() {
     if (!selectedContestId) return;
     setError('');
     try {
-      await api.createEntry(authToken, selectedContestId);
-      await refreshAll();
-      setStatus('Entry created.');
+      const { created } = await ensureContestEntry(selectedContestId);
+      setStatus(created ? 'Entry created.' : 'Entry ready.');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -2152,20 +2178,15 @@ export default function App() {
     setPickDraft(nextDraft);
 
     try {
-      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
+      const { entry } = await ensureContestEntry(selectedContestId);
 
       const payload = games
         .filter((g) => nextDraft[g.id]?.pickedWinner)
         .map((g) => ({ gameId: g.id, pickedWinner: nextDraft[g.id].pickedWinner }));
 
       await api.submitPicks(authToken, selectedContestId, payload);
-      const entryData = await api.entriesMe(authToken);
-      setEntries(entryData.entries);
-      const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
-      if (entry) {
-        const saved = await api.getPicks(authToken, selectedContestId, entry.id);
-        setSavedPicks(saved.picks);
-      }
+      const saved = await api.getPicks(authToken, selectedContestId, entry.id);
+      setSavedPicks(saved.picks);
       await refreshPickPercentages(selectedContestId);
       setStatus('Pick saved automatically.');
     } catch (err) {
@@ -2178,7 +2199,7 @@ export default function App() {
     setError('');
 
     try {
-      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
+      const { entry } = await ensureContestEntry(selectedContestId);
 
       const next = new Map(savedBracketBySlot);
       next.set(gameSlot, pickedTeam);
@@ -2199,14 +2220,8 @@ export default function App() {
       const clearedCount = next.size - payload.length;
 
       await api.submitBracket(authToken, selectedContestId, payload);
-
-      const entryData = await api.entriesMe(authToken);
-      setEntries(entryData.entries);
-      const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
-      if (entry) {
-        const saved = await api.getBracket(authToken, selectedContestId, entry.id);
-        setSavedBracket(saved.picks);
-      }
+      const saved = await api.getBracket(authToken, selectedContestId, entry.id);
+      setSavedBracket(saved.picks);
 
       await refreshPickPercentages(selectedContestId);
       setStatus(bracketAutoClearStatus('Bracket selection saved automatically.', clearedCount));
@@ -2221,7 +2236,7 @@ export default function App() {
     setError('');
 
     try {
-      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
+      const { entry } = await ensureContestEntry(selectedContestId);
 
       const next = new Map(savedBracketBySlot);
       next.set(slot, pickedTeam);
@@ -2234,14 +2249,8 @@ export default function App() {
       if (payload.length === 0) return;
 
       await api.submitBracket(authToken, selectedContestId, payload);
-
-      const entryData = await api.entriesMe(authToken);
-      setEntries(entryData.entries);
-      const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
-      if (entry) {
-        const saved = await api.getBracket(authToken, selectedContestId, entry.id);
-        setSavedBracket(saved.picks);
-      }
+      const saved = await api.getBracket(authToken, selectedContestId, entry.id);
+      setSavedBracket(saved.picks);
 
       await refreshPickPercentages(selectedContestId);
       setStatus('Conference champion pick saved.');
@@ -2264,7 +2273,7 @@ export default function App() {
     setError('');
 
     try {
-      await api.createEntry(authToken, selectedContestId).catch(() => undefined);
+      const { entry } = await ensureContestEntry(selectedContestId);
 
       const next = new Map(savedBracketBySlot);
       next.set(gameSlot, pickedTeam);
@@ -2281,14 +2290,8 @@ export default function App() {
       const clearedCount = next.size - validPicks.size;
 
       await api.submitBracket(authToken, selectedContestId, payload);
-
-      const entryData = await api.entriesMe(authToken);
-      setEntries(entryData.entries);
-      const entry = entryData.entries.find((e) => e.contestId === selectedContestId);
-      if (entry) {
-        const saved = await api.getBracket(authToken, selectedContestId, entry.id);
-        setSavedBracket(saved.picks);
-      }
+      const saved = await api.getBracket(authToken, selectedContestId, entry.id);
+      setSavedBracket(saved.picks);
 
       await refreshPickPercentages(selectedContestId);
       setStatus(bracketAutoClearStatus('March Madness pick saved automatically.', clearedCount));
@@ -2302,6 +2305,7 @@ export default function App() {
     if (!selectedContestId || isViewingContestParticipantEntry) return;
     setError('');
     try {
+      const { entry } = await ensureContestEntry(selectedContestId);
       const payload = games
         .filter((game) => pickDraft[game.id]?.pickedWinner)
         .map((game) => ({
@@ -2314,10 +2318,8 @@ export default function App() {
         }));
 
       await api.submitPicks(authToken, selectedContestId, payload);
-      if (selectedEntry) {
-        const saved = await api.getPicks(authToken, selectedContestId, selectedEntry.id);
-        setSavedPicks(saved.picks);
-      }
+      const saved = await api.getPicks(authToken, selectedContestId, entry.id);
+      setSavedPicks(saved.picks);
       await refreshPickPercentages(selectedContestId);
       setStatus('Picks submitted.');
     } catch (err) {
@@ -2330,17 +2332,16 @@ export default function App() {
     if (!selectedContestId || isViewingContestParticipantEntry) return;
     setError('');
     try {
+      const { entry } = await ensureContestEntry(selectedContestId);
       await api.submitBracket(
-        userId,
+        authToken,
         selectedContestId,
         bracketDraft
           .filter((row) => row.gameSlot && row.pickedTeam && row.round)
           .map((row) => ({ gameSlot: row.gameSlot, pickedTeam: row.pickedTeam, round: Number(row.round) }))
       );
-      if (selectedEntry) {
-        const saved = await api.getBracket(authToken, selectedContestId, selectedEntry.id);
-        setSavedBracket(saved.picks);
-      }
+      const saved = await api.getBracket(authToken, selectedContestId, entry.id);
+      setSavedBracket(saved.picks);
       await refreshPickPercentages(selectedContestId);
       setStatus('Bracket picks submitted.');
     } catch (err) {
