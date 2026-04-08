@@ -2,6 +2,16 @@ const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
 
 export type ApiError = { error?: string; detail?: string };
 
+export class ApiRequestError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}, authToken?: string): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -38,7 +48,7 @@ async function request<T>(path: string, options: RequestInit = {}, authToken?: s
 
   if (!response.ok) {
     const message = (body as ApiError).error ?? response.statusText;
-    throw new Error(message);
+    throw new ApiRequestError(message, response.status);
   }
 
   return body as T;

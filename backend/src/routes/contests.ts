@@ -399,6 +399,7 @@ contestsRouter.get('/contests', async (_req, res) => {
             coalesce(max(g.start_time), c.starts_at) as "endAt"
      from contests c
      left join games g on g.contest_id = c.id
+     where c.status <> 'DRAFT'
      group by c.id, c.name, c.type, c.season, c.starts_at, c.lock_mode, c.status
      order by c.starts_at asc`
   );
