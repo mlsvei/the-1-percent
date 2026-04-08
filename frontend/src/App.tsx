@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   api,
+  ApiRequestError,
   Contest,
   Entry,
   Game,
@@ -41,7 +42,6 @@ type OlympicBracketGame = {
 
 const AUTH_TOKEN_KEY = 'sports_contest_auth_token';
 const LEGACY_USER_KEY = 'sports_contest_user_id';
-const CREATOR_EMAIL = 'mlsvei2121@gmail.com';
 const LEADERBOARD_TOP_ONE_OPTION = '__TOP_ONE_ALL__';
 
 const PLANNED_UPCOMING_CONTESTS = [] as const;
@@ -922,6 +922,7 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [isContestCreator, setIsContestCreator] = useState(false);
 
   const [status, setStatus] = useState('Ready.');
   const [error, setError] = useState('');
@@ -1086,7 +1087,6 @@ export default function App() {
   const isNhlContest = selectedContest?.type === 'PICKEM_NHL';
   const isStraightPickemContest = isNbaContest || isNhlContest;
   const isPickemContest = selectedContest?.type === 'PICKEM_NFL' || selectedContest?.type === 'PICKEM_NBA' || selectedContest?.type === 'PICKEM_NHL';
-  const isContestCreator = currentUserEmail.trim().toLowerCase() === CREATOR_EMAIL;
   const isOlympicBracketContest =
     selectedContest?.type === 'BRACKET_NCAAM' &&
     ((selectedContest.name.toLowerCase().includes('olympic') && selectedContest.name.toLowerCase().includes('hockey')) ||
@@ -1182,6 +1182,45 @@ export default function App() {
   function bracketAutoClearStatus(baseMessage: string, clearedCount: number): string {
     if (clearedCount <= 0) return baseMessage;
     return `${baseMessage} Auto-cleared ${clearedCount} downstream ${clearedCount === 1 ? 'pick' : 'picks'}.`;
+  }
+
+  function performLogout(statusMessage: string) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_USER_KEY);
+    setAuthToken('');
+    setUserId('');
+    setDisplayName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setCurrentUserEmail('');
+    setIsContestCreator(false);
+    setContests([]);
+    setGroups([]);
+    setEntries([]);
+    setGames([]);
+    setSavedPicks([]);
+    setSavedBracket([]);
+    setTopOneAggregateRows([]);
+    setContestLeaderboards({});
+    setSelectedLeaderboardEntry(null);
+    setLeaderboardEntryContestId('');
+    setContestViewEntry(null);
+    setSelectedContestId('');
+    setContestPageId('');
+    setSelectedGroupId('');
+    setSelectedGroupContestId('');
+    setActiveTopPage('home');
+    setError('');
+    setStatus(statusMessage);
+  }
+
+  function handleAppError(err: unknown) {
+    if (err instanceof ApiRequestError && err.status === 401) {
+      performLogout('Session expired. Please log in again.');
+      return;
+    }
+    setError(err instanceof Error ? err.message : 'Unexpected error.');
   }
 
   async function ensureContestEntry(contestId: string): Promise<{ entry: Entry; created: boolean }> {
@@ -1517,7 +1556,7 @@ export default function App() {
       setTimeout(() => scrollToSection('contest-detail'), 0);
     } catch (err) {
       setContestViewEntry(null);
-      setError((err as Error).message);
+      handleAppError(err);
     } finally {
       setIsLeaderboardEntryLoading(false);
     }
@@ -1561,7 +1600,7 @@ export default function App() {
       setPopularPublicGroups(publicData.groups);
       setPrivateGroupNames(privateData.groups);
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     } finally {
       setIsPopularGroupsLoading(false);
     }
@@ -1571,10 +1610,20 @@ export default function App() {
     if (!activeAuthToken) return;
 
     const me = await api.me(activeAuthToken);
-    const isCreator = me.email.trim().toLowerCase() === CREATOR_EMAIL;
+    let contestData: { contests: Contest[] };
+    let isCreator = false;
 
-    const [contestData, groupData, entryData] = await Promise.all([
-      isCreator ? api.adminContests(activeAuthToken) : api.contests(),
+    try {
+      contestData = await api.adminContests(activeAuthToken);
+      isCreator = true;
+    } catch (err) {
+      if (!(err instanceof ApiRequestError) || err.status !== 403) {
+        throw err;
+      }
+      contestData = await api.contests();
+    }
+
+    const [groupData, entryData] = await Promise.all([
       api.groups(activeAuthToken, contestId ?? undefined),
       api.entriesMe(activeAuthToken)
     ]);
@@ -1585,11 +1634,12 @@ export default function App() {
     setGroups(groupData.groups);
     setEntries(entryData.entries);
     setCurrentUserEmail(me.email);
+    setIsContestCreator(isCreator);
   }
 
   useEffect(() => {
     if (!authToken) return;
-    refreshAll().catch((err: Error) => setError(err.message));
+    refreshAll().catch((err: Error) => handleAppError(err));
   }, [authToken]);
 
 
@@ -1635,7 +1685,7 @@ export default function App() {
     setIsContestLeaderboardsLoading(true);
 
     api
-      .contestLeaderboard(userId, selectedLeaderboardContestId)
+      .contestLeaderboard(authToken, selectedLeaderboardContestId)
       .then((data) => {
         if (!active) return;
         setContestLeaderboards((prev) => ({
@@ -1645,7 +1695,7 @@ export default function App() {
       })
       .catch((err: Error) => {
         if (!active) return;
-        setError(err.message);
+        handleAppError(err);
       })
       .finally(() => {
         if (!active) return;
@@ -1681,14 +1731,14 @@ export default function App() {
     }
 
     api
-      .contestLeaderboard(userId, selectedContestId)
+      .contestLeaderboard(authToken, selectedContestId)
       .then((data) => {
         if (!active) return;
         setContestLeaderboards((prev) => ({ ...prev, [selectedContestId]: data.leaderboard }));
       })
       .catch((err: Error) => {
         if (!active) return;
-        setError(err.message);
+        handleAppError(err);
       });
 
     return () => {
@@ -1709,14 +1759,14 @@ export default function App() {
     setIsTopOneAggregateLoading(true);
 
     api
-      .topOneLeaderboard(userId)
+      .topOneLeaderboard(authToken)
       .then((data) => {
         if (!active) return;
         setTopOneAggregateRows(data.leaderboard);
       })
       .catch((err: Error) => {
         if (!active) return;
-        setError(err.message);
+        handleAppError(err);
       })
       .finally(() => {
         if (!active) return;
@@ -1781,7 +1831,7 @@ export default function App() {
     }
 
     api
-      .groups(userId, groupsContestId)
+      .groups(authToken, groupsContestId)
       .then((data) => {
         if (!active) return;
         const scopedGroups = data.groups.filter((group) => group.contestId === groupsContestId);
@@ -1792,7 +1842,7 @@ export default function App() {
       })
       .catch((err: Error) => {
         if (!active) return;
-        setError(err.message);
+        handleAppError(err);
       });
 
     return () => {
@@ -1880,7 +1930,7 @@ export default function App() {
         setGames([]);
         setPickDraft({});
         setPickPercentagesByKey({});
-        setError(err.message);
+        handleAppError(err);
       })
       .finally(() => {
         if (!active) return;
@@ -1958,7 +2008,7 @@ export default function App() {
         setSavedPicks(data.picks);
       } catch (err) {
         if (!active) return;
-        setError((err as Error).message);
+        handleAppError(err);
       } finally {
         if (!active) return;
         setIsSavedLoading(false);
@@ -2029,7 +2079,7 @@ export default function App() {
       setConfirmPassword('');
       setStatus(authMode === 'register' ? 'Account created.' : 'Logged in.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2053,7 +2103,7 @@ export default function App() {
       await refreshPopularGroups(contestId);
       setStatus(groupVisibility === 'PRIVATE' ? 'Private group created.' : 'Public group created.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2077,7 +2127,7 @@ export default function App() {
       await refreshPopularGroups(contestId);
       setStatus('Joined public group.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2105,7 +2155,7 @@ export default function App() {
       await refreshPopularGroups(contestId);
       setStatus('Joined private group.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2132,7 +2182,7 @@ export default function App() {
       });
       setStatus('Tiebreaker saved.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2144,7 +2194,7 @@ export default function App() {
       await refreshPopularGroups(contestId);
       setStatus('Joined group.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2159,7 +2209,7 @@ export default function App() {
       const { created } = await ensureContestEntry(selectedContestId);
       setStatus(created ? 'Entry created.' : 'Entry ready.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2190,7 +2240,7 @@ export default function App() {
       await refreshPickPercentages(selectedContestId);
       setStatus('Pick saved automatically.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2226,7 +2276,7 @@ export default function App() {
       await refreshPickPercentages(selectedContestId);
       setStatus(bracketAutoClearStatus('Bracket selection saved automatically.', clearedCount));
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2255,7 +2305,7 @@ export default function App() {
       await refreshPickPercentages(selectedContestId);
       setStatus('Conference champion pick saved.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
   function marchMadnessRoundForSlot(gameSlot: string): number {
@@ -2296,7 +2346,7 @@ export default function App() {
       await refreshPickPercentages(selectedContestId);
       setStatus(bracketAutoClearStatus('March Madness pick saved automatically.', clearedCount));
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2323,7 +2373,7 @@ export default function App() {
       await refreshPickPercentages(selectedContestId);
       setStatus('Picks submitted.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2345,7 +2395,7 @@ export default function App() {
       await refreshPickPercentages(selectedContestId);
       setStatus('Bracket picks submitted.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2373,7 +2423,7 @@ export default function App() {
       setStatus('Contest cloned.');
       openContestPage(created.id);
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2386,7 +2436,7 @@ export default function App() {
       await refreshAll(authToken, selectedContestId);
       setStatus(nextStatus === 'OPEN' ? 'Contest published.' : 'Contest moved to draft (hidden from users).');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2410,7 +2460,7 @@ export default function App() {
 
       setStatus(`Contest regraded. Changed entries: ${result.changedEntries}.`);
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2463,7 +2513,7 @@ export default function App() {
 
       setStatus('Game result override saved and contest regraded.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     }
   }
 
@@ -2482,7 +2532,7 @@ export default function App() {
       setContestLeaderboards((prev) => ({ ...prev, [contestId]: contestData.leaderboard }));
       setStatus('Leaderboard loaded.');
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
     } finally {
       setIsGroupLeaderboardLoading(false);
     }
@@ -2514,7 +2564,7 @@ export default function App() {
       setStatus('User stats loaded.');
       setTimeout(() => scrollToSection('user-stats-page'), 0);
     } catch (err) {
-      setError((err as Error).message);
+      handleAppError(err);
       setSelectedUserStats(null);
     } finally {
       setIsUserStatsLoading(false);
@@ -2534,28 +2584,14 @@ export default function App() {
       setStatus('Participant entry loaded.');
     } catch (err) {
       setSelectedLeaderboardEntry(null);
-      setError((err as Error).message);
+      handleAppError(err);
     } finally {
       setIsLeaderboardEntryLoading(false);
     }
   }
 
   function logout() {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(LEGACY_USER_KEY);
-    setAuthToken('');
-    setUserId('');
-    setDisplayName('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setCurrentUserEmail('');
-    setContests([]);
-    setGroups([]);
-    setEntries([]);
-    setGames([]);
-    setTopOneAggregateRows([]);
-    setStatus('Logged out.');
+    performLogout('Logged out.');
   }
 
   function scrollToSection(id: string) {
