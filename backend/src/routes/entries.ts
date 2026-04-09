@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db.js';
+import { refreshContestStatuses } from '../services/contest-status.js';
 import { requireUser } from '../middleware/require-user.js';
 import type { AuthenticatedRequest } from '../types.js';
 
@@ -116,14 +117,26 @@ entriesRouter.get('/entries/me', requireUser, async (req: AuthenticatedRequest, 
 });
 
 entriesRouter.get('/contests/:contestId/users/:targetUserId/entry', requireUser, async (req: AuthenticatedRequest, res) => {
-  const contestResult = await query<{ id: string; type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM' }>(
-    'select id, type from contests where id = $1',
+  await refreshContestStatuses(req.params.contestId);
+
+  const contestResult = await query<{
+    id: string;
+    type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM';
+    status: 'DRAFT' | 'OPEN' | 'LOCKED' | 'COMPLETE';
+  }>(
+    'select id, type, status from contests where id = $1',
     [req.params.contestId]
   );
   const contest = contestResult.rows[0];
 
   if (!contest) {
     res.status(404).json({ error: 'Contest not found' });
+    return;
+  }
+
+  const isOwnEntry = req.params.targetUserId === req.userId;
+  if (!isOwnEntry && contest.status !== 'LOCKED' && contest.status !== 'COMPLETE') {
+    res.status(403).json({ error: 'Participant entries become visible after contest lock.' });
     return;
   }
 
