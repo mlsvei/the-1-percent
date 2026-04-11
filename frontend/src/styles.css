@@ -270,6 +270,69 @@ td {
   }
 }
 
+@media (max-width: 700px) {
+  .page {
+    width: min(100%, 96vw);
+    padding: 16px 0 96px;
+  }
+
+  .card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .topNav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .navBtn {
+    width: 100%;
+    min-width: 0;
+    text-align: center;
+    padding: 10px 8px;
+  }
+
+  .row,
+  .between {
+    flex-wrap: wrap;
+  }
+
+  .list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .entryBadge {
+    margin-left: 0;
+  }
+
+  .statusBar {
+    width: min(100% - 16px, 96vw);
+    bottom: 8px;
+    padding: 10px 12px;
+  }
+
+  .leaderboardHeader,
+  .leaderboardRow {
+    grid-template-columns: 56px 1fr;
+  }
+
+  .leaderboardPercentile {
+    justify-self: start;
+  }
+
+  .leaderboardNameCell {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topOneBadge {
+    margin-left: 0;
+  }
+}
+
 
 .nbaPickBoard {
   margin-top: 6px;
