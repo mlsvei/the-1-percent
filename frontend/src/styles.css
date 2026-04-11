@@ -324,10 +324,10 @@ td {
   }
 
   .leaderboardRow {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
     align-items: center;
     gap: 8px;
-    padding: 12px 0;
+    padding: 10px 0;
     border-bottom: 1px dashed var(--line);
   }
 
@@ -337,28 +337,32 @@ td {
 
   .leaderboardRank {
     align-self: center;
-    font-size: 1.05rem;
+    font-size: 0.98rem;
   }
 
   .leaderboardNameCell {
     display: flex;
     align-items: center;
     flex-direction: row;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-wrap: nowrap;
+    gap: 6px;
     min-width: 0;
   }
 
   .leaderboardNameCell .contestNameLink {
-    font-size: 1rem;
-    white-space: normal;
-    word-break: break-word;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.96rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .leaderboardMeta {
     display: flex;
     flex-wrap: nowrap;
-    gap: 8px 12px;
+    gap: 10px;
     align-items: center;
     justify-self: end;
     white-space: nowrap;
@@ -366,13 +370,14 @@ td {
 
   .leaderboardPercentile,
   .leaderboardPoints {
-    font-size: 0.92rem;
+    font-size: 0.82rem;
   }
 
   .leaderboardRow .miniBtn {
-    padding: 4px 8px;
-    font-size: 0.72rem;
+    padding: 4px 7px;
+    font-size: 0.66rem;
     line-height: 1;
+    white-space: nowrap;
   }
 
   .topOneBadge {
