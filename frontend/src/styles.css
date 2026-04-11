@@ -324,51 +324,55 @@ td {
   }
 
   .leaderboardRow {
-    grid-template-columns: 40px 1fr;
-    gap: 0 12px;
-    padding: 14px 0;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
     border-bottom: 1px dashed var(--line);
   }
 
   .leaderboardEntryBody {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    display: contents;
   }
 
   .leaderboardRank {
-    align-self: start;
+    align-self: center;
     font-size: 1.05rem;
   }
 
   .leaderboardNameCell {
     display: flex;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
     min-width: 0;
   }
 
   .leaderboardNameCell .contestNameLink {
-    font-size: 1.05rem;
+    font-size: 1rem;
     white-space: normal;
     word-break: break-word;
   }
 
   .leaderboardMeta {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px 14px;
+    flex-wrap: nowrap;
+    gap: 8px 12px;
     align-items: center;
+    justify-self: end;
+    white-space: nowrap;
   }
 
   .leaderboardPercentile,
   .leaderboardPoints {
-    justify-self: start;
-    font-size: 0.98rem;
+    font-size: 0.92rem;
   }
 
   .leaderboardRow .miniBtn {
-    padding: 6px 10px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    line-height: 1;
   }
 
   .topOneBadge {
