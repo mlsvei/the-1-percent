@@ -324,9 +324,9 @@ td {
   }
 
   .leaderboardRow {
-    grid-template-columns: 20px minmax(88px, 1fr) auto auto auto;
+    grid-template-columns: 10px minmax(116px, 1fr) auto auto auto;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     padding: 10px 0;
     border-bottom: 1px dashed var(--line);
   }
@@ -337,7 +337,8 @@ td {
 
   .leaderboardRank {
     align-self: center;
-    font-size: 0.98rem;
+    font-size: 0.84rem;
+    justify-self: start;
   }
 
   .leaderboardNameCell {
@@ -345,7 +346,7 @@ td {
     align-items: center;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 4px;
+    gap: 2px;
     min-width: 0;
   }
 
@@ -362,7 +363,7 @@ td {
   .leaderboardMeta {
     display: flex;
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
     justify-self: end;
     white-space: nowrap;
