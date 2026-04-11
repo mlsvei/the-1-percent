@@ -3089,12 +3089,16 @@ export default function App() {
                           return (
                             <li key={`${contest.id}-${row.userId}`} className="leaderboardRow">
                               <span className="leaderboardRank">{rank}</span>
-                              <div className="leaderboardNameCell">
-                                <button type="button" className="contestNameLink" onClick={() => onLeaderboardNameClick(contest.id, row.userId)}>{leaderboardDisplayName(row)}</button>
-                                <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
+                              <div className="leaderboardEntryBody">
+                                <div className="leaderboardNameCell">
+                                  <button type="button" className="contestNameLink" onClick={() => onLeaderboardNameClick(contest.id, row.userId)}>{leaderboardDisplayName(row)}</button>
+                                  <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
+                                </div>
+                                <div className="leaderboardMeta">
+                                  <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
+                                  <span className="leaderboardPoints">{row.totalPoints} pts</span>
+                                </div>
                               </div>
-                              <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
-                              <span>{row.totalPoints} pts</span>
                             </li>
                           );
                         })}

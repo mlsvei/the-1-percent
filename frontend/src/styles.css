@@ -319,20 +319,25 @@ td {
     padding: 10px 12px;
   }
 
-  .leaderboardHeader,
+  .leaderboardHeader {
+    display: none;
+  }
+
   .leaderboardRow {
-    grid-template-columns: 52px 1fr;
-    gap: 6px 10px;
+    grid-template-columns: 40px 1fr;
+    gap: 0 12px;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--line);
   }
 
-  .leaderboardPercentile {
-    grid-column: 2;
-    justify-self: start;
+  .leaderboardEntryBody {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
-  .leaderboardRow > span:last-child {
-    grid-column: 2;
-    justify-self: start;
+  .leaderboardRank {
+    align-self: start;
+    font-size: 1.05rem;
   }
 
   .leaderboardNameCell {
@@ -344,8 +349,22 @@ td {
   }
 
   .leaderboardNameCell .contestNameLink {
+    font-size: 1.05rem;
     white-space: normal;
     word-break: break-word;
+  }
+
+  .leaderboardMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: center;
+  }
+
+  .leaderboardPercentile,
+  .leaderboardPoints {
+    justify-self: start;
+    font-size: 0.98rem;
   }
 
   .leaderboardRow .miniBtn {
@@ -790,9 +809,17 @@ td {
 
 .leaderboardRow {
   display: grid !important;
-  grid-template-columns: 80px 1fr 110px auto;
+  grid-template-columns: 80px 1fr;
   align-items: center;
   gap: 8px;
+}
+
+.leaderboardEntryBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .leaderboardRow .contestNameLink {
@@ -803,6 +830,11 @@ td {
 .leaderboardPercentile {
   justify-self: center;
   color: #3f4f5a;
+  font-weight: 700;
+}
+
+.leaderboardPoints {
+  color: #233746;
   font-weight: 700;
 }
 
