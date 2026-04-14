@@ -326,6 +326,7 @@ td {
   .leaderboardRow {
     display: flex !important;
     align-items: center;
+    justify-content: flex-start;
     gap: 4px;
     padding: 10px 0;
     border-bottom: 1px dashed var(--line);
@@ -829,6 +830,7 @@ td {
   display: grid !important;
   grid-template-columns: 80px 1fr;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
 }
 
