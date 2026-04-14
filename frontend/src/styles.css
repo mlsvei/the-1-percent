@@ -324,20 +324,26 @@ td {
   }
 
   .leaderboardRow {
-    grid-template-columns: 10px minmax(116px, 1fr) auto auto auto;
+    display: flex !important;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     padding: 10px 0;
     border-bottom: 1px dashed var(--line);
   }
 
   .leaderboardEntryBody {
-    display: contents;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
   }
 
   .leaderboardRank {
     align-self: center;
     font-size: 0.84rem;
+    flex: 0 0 auto;
     justify-self: start;
   }
 
@@ -347,6 +353,7 @@ td {
     flex-direction: row;
     flex-wrap: nowrap;
     gap: 2px;
+    flex: 1;
     min-width: 0;
   }
 
@@ -365,6 +372,7 @@ td {
     flex-wrap: nowrap;
     gap: 4px;
     align-items: center;
+    flex: 0 0 auto;
     justify-self: end;
     white-space: nowrap;
   }
