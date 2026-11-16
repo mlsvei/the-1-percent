@@ -2651,13 +2651,13 @@ export default function App() {
     <div className="page">
       <header className="hero" id="home">
         <div className="wordmark">The 1%</div>
-        <nav className="topNav" aria-label="Primary">
+        {authToken && <nav className="topNav" aria-label="Primary">
           <button className="navBtn" onClick={() => { if (contestPageId) { closeContestPage(); } else { setActiveTopPage('home'); setTimeout(() => scrollToSection('home'), 0); } }}>Home</button>
-          <button className="navBtn" onClick={() => { setActiveTopPage('entries'); setTimeout(() => scrollToSection('my-entries-page'), 0); }}>My Entry's</button>
+          <button className="navBtn" aria-current={activeTopPage === 'entries' ? 'page' : undefined} onClick={() => { setActiveTopPage('entries'); setTimeout(() => scrollToSection('my-entries-page'), 0); }}>My Entries</button>
           <button className="navBtn" onClick={() => { setSelectedLeaderboardContestId(''); setSelectedLeaderboardEntry(null); setLeaderboardEntryContestId(''); setActiveTopPage('leaderboards'); setTimeout(() => scrollToSection('leaderboards-page'), 0); }}>Leaderboards</button>
           <button className="navBtn" onClick={() => { setSelectedGroupContestId(selectedContestId || ''); setActiveTopPage('groups'); setTimeout(() => scrollToSection('groups-page'), 0); }}>Groups</button>
           <button className="navBtn" onClick={() => { if (contestPageId) { closeContestPage(); } else { setActiveTopPage('home'); setTimeout(() => scrollToSection('my-1'), 0); } }}>My 1%</button>
-        </nav>
+        </nav>}
       </header>
 
       {!authToken ? (
@@ -2687,8 +2687,7 @@ export default function App() {
         <>
           <section className="card row between" id="my-1">
             <div>
-              <h2>Control Desk</h2>
-              <p>Signed in as <strong>{currentUserEmail || displayName || userId.slice(0, 8)}</strong></p>
+              <strong>{displayName || currentUserEmail || userId.slice(0, 8)}</strong>
             </div>
             <div className="row gap">
               <button onClick={() => refreshAll()} className="secondary">Refresh</button>
