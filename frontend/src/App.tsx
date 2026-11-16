@@ -15,6 +15,35 @@ import {
   ParticipantEntryPickemPick,
   UserStatsProfile
 } from './api';
+import {
+  OlympicBracketTeam,
+  OlympicBracketGame,
+  OLYMPIC_TEAM_FLAGS,
+  OLYMPIC_TEAM_SEEDS,
+  OLYMPIC_STAGE_COLUMNS,
+  OLYMPIC_ROUND_BY_SLOT,
+  OLYMPIC_BASE_GAMES,
+  UEFA_ROUND_BY_SLOT,
+  UEFA_BASE_GAMES,
+  UEFA_TEAM_LOGOS,
+  teamDisplayName,
+  resolveOlympicBracketGames,
+  resolveUefaBracketGames,
+  uefaTeamLogoUrl,
+  isOfficialUefaKickoff
+} from './lib/brackets';
+import { renderBracketTeamIcon, renderUefaTeamIcon } from './lib/bracketIcons';
+import { MarchRegionView, MARCH_MADNESS_SEEDS, NCAAB_CONFERENCE_TEAMS } from './lib/marchMadness';
+import { nbaLogoUrl, nhlLogoUrl } from './lib/teamAssets';
+import { ContestSportFilter, fmtDate, fmtDateEastern, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
+import {
+  leaderboardDisplayName,
+  rankFromPoints,
+  rankFromTopOneCount,
+  rankForUserByPoints,
+  percentileFromRank,
+  isTopOnePercentEntry
+} from './lib/ranking';
 
 type PickDraft = Record<string, { pickedWinner: string; confidencePoints: string }>;
 
@@ -24,762 +53,29 @@ type BracketDraftRow = {
   round: string;
 };
 
-type OlympicBracketTeam = {
-  name: string;
-  flag: string;
-  seed?: number;
-  sourceSlot?: string;
-  sourceKind?: 'winner' | 'loser';
-};
+type AppPage = 'home' | 'entries' | 'contest' | 'leaderboards' | 'groups' | 'user-stats' | 'profile';
+type StatsReturnPage = Exclude<AppPage, 'user-stats'>;
 
-type OlympicBracketGame = {
-  slot: string;
-  round: number;
-  stage: string;
-  dateLabel: string;
-  teams: [OlympicBracketTeam, OlympicBracketTeam];
-};
+function NavIcon({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className="navIcon" aria-hidden="true">
+      <path d={d} fill="currentColor" />
+    </svg>
+  );
+}
+
+const ICON_CONTESTS = 'M12 2 14.5 8.5 21 9.3 16.2 13.7 17.6 20.1 12 16.9 6.4 20.1 7.8 13.7 3 9.3 9.5 8.5 Z';
+const ICON_ENTRIES = 'M4 4h16v2H4zM4 11h16v2H4zM4 18h10v2H4z';
+const ICON_LEADERBOARD = 'M4 20V10h3v10zm6.5 0V4h3v16zm6.5 0v-7h3v7z';
+const ICON_GROUPS = 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-8 2c-2.7 0-6 1.3-6 3.5V19h8v-2.5c0-1 .4-1.9 1.1-2.6A9.6 9.6 0 0 0 8 13Zm8 0c-.6 0-1.3.1-2 .3.7.9 1 1.9 1 2.7V19h7v-2.5c0-2.2-3.3-3.5-6-3.5Z';
+const ICON_PROFILE = 'M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-9 2.2-9 6v2h18v-2c0-3.8-4.6-6-9-6Z';
+const ICON_REFRESH = 'M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.3L14 10h6V4Z';
 
 const AUTH_TOKEN_KEY = 'sports_contest_auth_token';
 const LEGACY_USER_KEY = 'sports_contest_user_id';
 const LEADERBOARD_TOP_ONE_OPTION = '__TOP_ONE_ALL__';
 
 const PLANNED_UPCOMING_CONTESTS = [] as const;
-
-const MARCH_MADNESS_SEEDS: Record<string, number> = {
-  'Arizona': 1,
-  'Long Island': 16,
-  'Villanova': 8,
-  'Utah State': 9,
-  'Wisconsin': 5,
-  'High Point': 12,
-  'Arkansas': 4,
-  'Hawaii': 13,
-  'BYU': 6,
-  'NC State / Texas': 11,
-  'Gonzaga': 3,
-  'Kennesaw State': 14,
-  'Miami (FL)': 7,
-  'Missouri': 10,
-  'Purdue': 2,
-  'Queens (N.C.)': 15,
-  'Duke': 1,
-  'Siena': 16,
-  'Ohio State': 8,
-  'TCU': 9,
-  "St. John's": 5,
-  'Northern Iowa': 12,
-  'Kansas': 4,
-  'Cal Baptist': 13,
-  'Louisville': 6,
-  'South Florida': 11,
-  'Michigan State': 3,
-  'North Dakota State': 14,
-  'UCLA': 7,
-  'UCF': 10,
-  'UConn': 2,
-  'Furman': 15,
-  'Michigan': 1,
-  'Howard / UMBC': 16,
-  'Georgia': 8,
-  'Saint Louis': 9,
-  'Texas Tech': 5,
-  'Akron': 12,
-  'Alabama': 4,
-  'Hofstra': 13,
-  'Tennessee': 6,
-  'SMU / Miami (OH)': 11,
-  'Virginia': 3,
-  'Wright State': 14,
-  'Kentucky': 7,
-  'Santa Clara': 10,
-  'Iowa State': 2,
-  'Tennessee State': 15,
-  'Florida': 1,
-  'Lehigh / Prairie View A&M': 16,
-  'Clemson': 8,
-  'Iowa': 9,
-  'Vanderbilt': 5,
-  'McNeese': 12,
-  'Nebraska': 4,
-  'Troy': 13,
-  'North Carolina': 6,
-  'VCU': 11,
-  'Illinois': 3,
-  'Penn': 14,
-  "Saint Mary's": 7,
-  'Texas A&M': 10,
-  'Houston': 2,
-  'Idaho': 15
-};
-
-const NCAAB_CONFERENCE_TEAMS: Array<{ conference: string; slot: string; teams: string[] }> = [
-  { conference: 'America East', slot: 'CONF_AE', teams: ['Albany', 'Binghamton', 'Bryant', 'Maine', 'NJIT', 'UMass Lowell', 'New Hampshire', 'UMBC', 'Vermont'] },
-  { conference: 'American Athletic', slot: 'CONF_AAC', teams: ['Charlotte', 'East Carolina', 'Florida Atlantic', 'Memphis', 'North Texas', 'Rice', 'South Florida', 'Temple', 'Tulane', 'Tulsa', 'UAB', 'UTSA'] },
-  { conference: 'Atlantic 10', slot: 'CONF_A10', teams: ['Davidson', 'Dayton', 'Duquesne', 'Fordham', 'George Mason', 'George Washington', 'La Salle', 'Loyola Chicago', 'Massachusetts', "Saint Joseph's", 'Saint Louis', 'St. Bonaventure', 'Rhode Island', 'Richmond', 'VCU'] },
-  { conference: 'ACC', slot: 'CONF_ACC', teams: ['Boston College', 'California', 'Clemson', 'Duke', 'Florida State', 'Georgia Tech', 'Louisville', 'Miami (FL)', 'NC State', 'North Carolina', 'Notre Dame', 'Pittsburgh', 'SMU', 'Stanford', 'Syracuse', 'Virginia', 'Virginia Tech', 'Wake Forest'] },
-  { conference: 'ASUN', slot: 'CONF_ASUN', teams: ['Austin Peay', 'Bellarmine', 'Central Arkansas', 'Eastern Kentucky', 'Florida Gulf Coast', 'Jacksonville', 'Jacksonville State', 'Kennesaw State', 'Lipscomb', 'North Alabama', 'North Florida', 'Queens', 'Stetson', 'West Georgia'] },
-  { conference: 'Big 12', slot: 'CONF_B12', teams: ['Arizona', 'Arizona State', 'Baylor', 'BYU', 'Cincinnati', 'Colorado', 'Houston', 'Iowa State', 'Kansas', 'Kansas State', 'Oklahoma State', 'TCU', 'Texas Tech', 'UCF', 'Utah', 'West Virginia'] },
-  { conference: 'Big East', slot: 'CONF_BE', teams: ['Butler', 'Creighton', 'DePaul', 'Georgetown', 'Marquette', 'Providence', "St. John's", 'Seton Hall', 'UConn', 'Villanova', 'Xavier'] },
-  { conference: 'Big Sky', slot: 'CONF_BSKY', teams: ['Eastern Washington', 'Idaho', 'Idaho State', 'Montana', 'Montana State', 'Northern Arizona', 'Northern Colorado', 'Portland State', 'Sacramento State', 'Weber State'] },
-  { conference: 'Big South', slot: 'CONF_BSOUTH', teams: ['Charleston Southern', 'Gardner-Webb', 'High Point', 'Longwood', 'Presbyterian', 'Radford', 'South Carolina Upstate', 'UNC Asheville', 'Winthrop'] },
-  { conference: 'Big Ten', slot: 'CONF_B10', teams: ['Illinois', 'Indiana', 'Iowa', 'Maryland', 'Michigan', 'Michigan State', 'Minnesota', 'Nebraska', 'Northwestern', 'Ohio State', 'Oregon', 'Penn State', 'Purdue', 'Rutgers', 'UCLA', 'USC', 'Washington', 'Wisconsin'] },
-  { conference: 'Big West', slot: 'CONF_BWEST', teams: ['Cal Poly', 'CSUN', 'Hawaii', 'Long Beach State', 'UC Davis', 'UC Irvine', 'UC Riverside', 'UC San Diego', 'UC Santa Barbara'] },
-  { conference: 'CAA', slot: 'CONF_CAA', teams: ['Campbell', 'Charleston', 'Delaware', 'Drexel', 'Elon', 'Hampton', 'Hofstra', 'Monmouth', 'UNC Wilmington', 'Northeastern', 'Stony Brook', 'Towson'] },
-  { conference: 'Conference USA', slot: 'CONF_CUSA', teams: ['FIU', 'Jacksonville State', 'Kennesaw State', 'Liberty', 'Louisiana Tech', 'Middle Tennessee', 'New Mexico State', 'Sam Houston', 'UTEP', 'Western Kentucky'] },
-  { conference: 'Horizon League', slot: 'CONF_HORIZON', teams: ['Cleveland State', 'Detroit Mercy', 'Green Bay', 'IU Indianapolis', 'Milwaukee', 'Northern Kentucky', 'Oakland', 'Purdue Fort Wayne', 'Robert Morris', 'Wright State', 'Youngstown State'] },
-  { conference: 'Ivy League', slot: 'CONF_IVY', teams: ['Brown', 'Columbia', 'Cornell', 'Dartmouth', 'Harvard', 'Penn', 'Princeton', 'Yale'] },
-  { conference: 'MAAC', slot: 'CONF_MAAC', teams: ['Canisius', 'Fairfield', 'Iona', 'Manhattan', 'Marist', 'Merrimack', "Mount St. Mary's", 'Niagara', 'Quinnipiac', "Saint Peter's", 'Siena'] },
-  { conference: 'MAC', slot: 'CONF_MAC', teams: ['Akron', 'Ball State', 'Bowling Green', 'Buffalo', 'Central Michigan', 'Eastern Michigan', 'Kent State', 'Miami (OH)', 'Northern Illinois', 'Ohio', 'Toledo', 'Western Michigan'] },
-  { conference: 'MEAC', slot: 'CONF_MEAC', teams: ['Coppin State', 'Delaware State', 'Howard', 'Maryland Eastern Shore', 'Morgan State', 'Norfolk State', 'North Carolina Central', 'South Carolina State'] },
-  { conference: 'Missouri Valley', slot: 'CONF_MVC', teams: ['Belmont', 'Bradley', 'Drake', 'Evansville', 'Illinois State', 'Indiana State', 'Murray State', 'Northern Iowa', 'Southern Illinois', 'UIC', 'Valparaiso'] },
-  { conference: 'Mountain West', slot: 'CONF_MW', teams: ['Air Force', 'Boise State', 'Colorado State', 'Fresno State', 'Nevada', 'New Mexico', 'San Diego State', 'San Jose State', 'UNLV', 'Utah State', 'Wyoming'] },
-  { conference: 'NEC', slot: 'CONF_NEC', teams: ['Central Connecticut', 'Chicago State', 'Fairleigh Dickinson', 'Le Moyne', 'LIU', 'Mercyhurst', 'Sacred Heart', 'Saint Francis', 'Stonehill', 'Wagner'] },
-  { conference: 'OVC', slot: 'CONF_OVC', teams: ['Eastern Illinois', 'Little Rock', 'Lindenwood', 'Morehead State', 'SIUE', 'Southeast Missouri State', 'Southern Indiana', 'Tennessee State', 'Tennessee Tech', 'UT Martin', 'Western Illinois'] },
-  { conference: 'Patriot League', slot: 'CONF_PAT', teams: ['American', 'Army', 'Boston University', 'Bucknell', 'Colgate', 'Holy Cross', 'Lafayette', 'Lehigh', 'Loyola Maryland', 'Navy'] },
-  { conference: 'SEC', slot: 'CONF_SEC', teams: ['Alabama', 'Arkansas', 'Auburn', 'Florida', 'Georgia', 'Kentucky', 'LSU', 'Mississippi State', 'Missouri', 'Oklahoma', 'Ole Miss', 'South Carolina', 'Tennessee', 'Texas', 'Texas A&M', 'Vanderbilt'] },
-  { conference: 'SoCon', slot: 'CONF_SOCON', teams: ['Chattanooga', 'The Citadel', 'ETSU', 'Furman', 'Mercer', 'Samford', 'UNC Greensboro', 'VMI', 'Western Carolina', 'Wofford'] },
-  { conference: 'Southland', slot: 'CONF_SLAND', teams: ['Houston Christian', 'Incarnate Word', 'Lamar', 'McNeese', 'New Orleans', 'Nicholls', 'Northwestern State', 'Southeastern Louisiana', 'Stephen F. Austin', 'Texas A&M-Corpus Christi', 'UT Rio Grande Valley'] },
-  { conference: 'SWAC', slot: 'CONF_SWAC', teams: ['Alabama A&M', 'Alabama State', 'Alcorn State', 'Arkansas-Pine Bluff', 'Bethune-Cookman', 'Florida A&M', 'Grambling', 'Jackson State', 'Mississippi Valley State', 'Prairie View A&M', 'Southern', 'Texas Southern'] },
-  { conference: 'Summit League', slot: 'CONF_SUMMIT', teams: ['Denver', 'Kansas City', 'North Dakota', 'North Dakota State', 'Omaha', 'Oral Roberts', 'South Dakota', 'South Dakota State', 'St. Thomas'] },
-  { conference: 'Sun Belt', slot: 'CONF_SUN', teams: ['App State', 'Arkansas State', 'Coastal Carolina', 'Georgia Southern', 'Georgia State', 'James Madison', 'Louisiana', 'Louisiana-Monroe', 'Marshall', 'Old Dominion', 'South Alabama', 'Southern Miss', 'Texas State', 'Troy'] },
-  { conference: 'WCC', slot: 'CONF_WCC', teams: ['Gonzaga', 'Loyola Marymount', 'Pacific', 'Pepperdine', 'Portland', "Saint Mary's", 'San Diego', 'San Francisco', 'Santa Clara', 'Washington State', 'Oregon State'] },
-  { conference: 'WAC', slot: 'CONF_WAC', teams: ['Abilene Christian', 'California Baptist', 'Grand Canyon', 'Seattle U', 'Southern Utah', 'Tarleton State', 'UT Arlington', 'Utah Tech'] }
-];
-
-const NBA_TEAM_ABBR: Record<string, string> = {
-  'Atlanta Hawks': 'atl',
-  'Boston Celtics': 'bos',
-  'Brooklyn Nets': 'bkn',
-  'Charlotte Hornets': 'cha',
-  'Chicago Bulls': 'chi',
-  'Cleveland Cavaliers': 'cle',
-  'Dallas Mavericks': 'dal',
-  'Denver Nuggets': 'den',
-  'Detroit Pistons': 'det',
-  'Golden State Warriors': 'gs',
-  'Houston Rockets': 'hou',
-  'Indiana Pacers': 'ind',
-  'Los Angeles Clippers': 'lac',
-  'Los Angeles Lakers': 'lal',
-  'Memphis Grizzlies': 'mem',
-  'Miami Heat': 'mia',
-  'Milwaukee Bucks': 'mil',
-  'Minnesota Timberwolves': 'min',
-  'New Orleans Pelicans': 'no',
-  'New York Knicks': 'ny',
-  'Oklahoma City Thunder': 'okc',
-  'Orlando Magic': 'orl',
-  'Philadelphia 76ers': 'phi',
-  'Phoenix Suns': 'phx',
-  'Portland Trail Blazers': 'por',
-  'Sacramento Kings': 'sac',
-  'San Antonio Spurs': 'sa',
-  'Toronto Raptors': 'tor',
-  'Utah Jazz': 'utah',
-  'Washington Wizards': 'wsh'
-};
-
-const NBA_TEAM_ALIAS_ABBR: Record<string, string> = {
-  ATL: 'atl',
-  BOS: 'bos',
-  BKN: 'bkn',
-  BRK: 'bkn',
-  CHA: 'cha',
-  CHI: 'chi',
-  CLE: 'cle',
-  DAL: 'dal',
-  DEN: 'den',
-  DET: 'det',
-  GS: 'gs',
-  GSW: 'gs',
-  HOU: 'hou',
-  IND: 'ind',
-  LAC: 'lac',
-  LAL: 'lal',
-  MEM: 'mem',
-  MIA: 'mia',
-  MIL: 'mil',
-  MIN: 'min',
-  NO: 'no',
-  NOP: 'no',
-  NY: 'ny',
-  NYK: 'ny',
-  OKC: 'okc',
-  ORL: 'orl',
-  PHI: 'phi',
-  PHX: 'phx',
-  PHO: 'phx',
-  POR: 'por',
-  SAC: 'sac',
-  SA: 'sa',
-  SAS: 'sa',
-  TOR: 'tor',
-  UTA: 'utah',
-  WAS: 'wsh',
-  WSH: 'wsh'
-};
-
-const NHL_TEAM_ABBR: Record<string, string> = {
-  'Anaheim Ducks': 'ana',
-  'Boston Bruins': 'bos',
-  'Buffalo Sabres': 'buf',
-  'Calgary Flames': 'cgy',
-  'Carolina Hurricanes': 'car',
-  'Chicago Blackhawks': 'chi',
-  'Colorado Avalanche': 'col',
-  'Columbus Blue Jackets': 'cbj',
-  'Dallas Stars': 'dal',
-  'Detroit Red Wings': 'det',
-  'Edmonton Oilers': 'edm',
-  'Florida Panthers': 'fla',
-  'Los Angeles Kings': 'la',
-  'Minnesota Wild': 'min',
-  'Montreal Canadiens': 'mtl',
-  'Nashville Predators': 'nsh',
-  'New Jersey Devils': 'nj',
-  'New York Islanders': 'nyi',
-  'New York Rangers': 'nyr',
-  'Ottawa Senators': 'ott',
-  'Philadelphia Flyers': 'phi',
-  'Pittsburgh Penguins': 'pit',
-  'San Jose Sharks': 'sj',
-  'Seattle Kraken': 'sea',
-  'St. Louis Blues': 'stl',
-  'Tampa Bay Lightning': 'tb',
-  'Toronto Maple Leafs': 'tor',
-  'Utah Hockey Club': 'utah',
-  'Vancouver Canucks': 'van',
-  'Vegas Golden Knights': 'vgk',
-  VEG: 'vgk',
-  'Washington Capitals': 'wsh',
-  'Winnipeg Jets': 'wpg',
-  ANA: 'ana',
-  BOS: 'bos',
-  BUF: 'buf',
-  CGY: 'cgy',
-  CAR: 'car',
-  CHI: 'chi',
-  COL: 'col',
-  CBJ: 'cbj',
-  DAL: 'dal',
-  DET: 'det',
-  EDM: 'edm',
-  FLA: 'fla',
-  LA: 'la',
-  MIN: 'min',
-  MTL: 'mtl',
-  NSH: 'nsh',
-  NJ: 'nj',
-  NYI: 'nyi',
-  NYR: 'nyr',
-  OTT: 'ott',
-  PHI: 'phi',
-  PIT: 'pit',
-  SJ: 'sj',
-  SEA: 'sea',
-  STL: 'stl',
-  TB: 'tb',
-  TOR: 'tor',
-  UTA: 'utah',
-  VAN: 'van',
-  VGK: 'vgk',
-  WAS: 'wsh',
-  WPG: 'wpg'
-};
-
-const OLYMPIC_TEAM_FLAGS: Record<string, string> = {
-  Canada: '🇨🇦',
-  'United States': '🇺🇸',
-  Slovakia: '🇸🇰',
-  Finland: '🇫🇮',
-  Czechia: '🇨🇿',
-  Denmark: '🇩🇰',
-  Sweden: '🇸🇪',
-  Latvia: '🇱🇻',
-  Germany: '🇩🇪',
-  France: '🇫🇷',
-  Switzerland: '🇨🇭',
-  Italy: '🇮🇹'
-};
-
-const OLYMPIC_TEAM_SEEDS: Record<string, number> = {
-  Canada: 1,
-  'United States': 2,
-  Slovakia: 3,
-  Finland: 4,
-  Switzerland: 5,
-  Germany: 6,
-  Sweden: 7,
-  Czechia: 8,
-  Denmark: 9,
-  Latvia: 10,
-  France: 11,
-  Italy: 12
-};
-
-const OLYMPIC_STAGE_ORDER = [
-  'Qualification play-offs',
-  'Quarter-finals',
-  'Semi-finals',
-  'Gold medal game',
-  'Bronze medal game'
-] as const;
-
-const OLYMPIC_STAGE_COLUMNS: Array<Array<(typeof OLYMPIC_STAGE_ORDER)[number]>> = [
-  ['Qualification play-offs'],
-  ['Quarter-finals'],
-  ['Semi-finals'],
-  ['Gold medal game', 'Bronze medal game']
-];
-
-const OLYMPIC_ROUND_BY_SLOT: Record<string, number> = {
-  QPO1: 1,
-  QPO2: 1,
-  QPO3: 1,
-  QPO4: 1,
-  QF1: 2,
-  QF2: 2,
-  QF3: 2,
-  QF4: 2,
-  SF1: 3,
-  SF2: 3,
-  GOLD: 4,
-  BRONZE: 3
-};
-
-const OLYMPIC_BASE_GAMES: OlympicBracketGame[] = [
-  {
-    slot: 'QPO1',
-    round: 1,
-    stage: 'Qualification play-offs',
-    dateLabel: '17 February',
-    teams: [
-      { name: 'Czechia', flag: OLYMPIC_TEAM_FLAGS.Czechia, seed: OLYMPIC_TEAM_SEEDS.Czechia },
-      { name: 'Denmark', flag: OLYMPIC_TEAM_FLAGS.Denmark, seed: OLYMPIC_TEAM_SEEDS.Denmark }
-    ]
-  },
-  {
-    slot: 'QPO2',
-    round: 1,
-    stage: 'Qualification play-offs',
-    dateLabel: '17 February',
-    teams: [
-      { name: 'Sweden', flag: OLYMPIC_TEAM_FLAGS.Sweden, seed: OLYMPIC_TEAM_SEEDS.Sweden },
-      { name: 'Latvia', flag: OLYMPIC_TEAM_FLAGS.Latvia, seed: OLYMPIC_TEAM_SEEDS.Latvia }
-    ]
-  },
-  {
-    slot: 'QPO3',
-    round: 1,
-    stage: 'Qualification play-offs',
-    dateLabel: '17 February',
-    teams: [
-      { name: 'Germany', flag: OLYMPIC_TEAM_FLAGS.Germany, seed: OLYMPIC_TEAM_SEEDS.Germany },
-      { name: 'France', flag: OLYMPIC_TEAM_FLAGS.France, seed: OLYMPIC_TEAM_SEEDS.France }
-    ]
-  },
-  {
-    slot: 'QPO4',
-    round: 1,
-    stage: 'Qualification play-offs',
-    dateLabel: '17 February',
-    teams: [
-      { name: 'Switzerland', flag: OLYMPIC_TEAM_FLAGS.Switzerland, seed: OLYMPIC_TEAM_SEEDS.Switzerland },
-      { name: 'Italy', flag: OLYMPIC_TEAM_FLAGS.Italy, seed: OLYMPIC_TEAM_SEEDS.Italy }
-    ]
-  },
-  {
-    slot: 'QF1',
-    round: 2,
-    stage: 'Quarter-finals',
-    dateLabel: '18 February',
-    teams: [
-      { name: 'Canada', flag: OLYMPIC_TEAM_FLAGS.Canada, seed: OLYMPIC_TEAM_SEEDS.Canada },
-      { name: 'Winner QPO1', flag: '🏒', sourceSlot: 'QPO1', sourceKind: 'winner' }
-    ]
-  },
-  {
-    slot: 'QF2',
-    round: 2,
-    stage: 'Quarter-finals',
-    dateLabel: '18 February',
-    teams: [
-      { name: 'United States', flag: OLYMPIC_TEAM_FLAGS['United States'], seed: OLYMPIC_TEAM_SEEDS['United States'] },
-      { name: 'Winner QPO2', flag: '🏒', sourceSlot: 'QPO2', sourceKind: 'winner' }
-    ]
-  },
-  {
-    slot: 'QF3',
-    round: 2,
-    stage: 'Quarter-finals',
-    dateLabel: '18 February',
-    teams: [
-      { name: 'Slovakia', flag: OLYMPIC_TEAM_FLAGS.Slovakia, seed: OLYMPIC_TEAM_SEEDS.Slovakia },
-      { name: 'Winner QPO3', flag: '🏒', sourceSlot: 'QPO3', sourceKind: 'winner' }
-    ]
-  },
-  {
-    slot: 'QF4',
-    round: 2,
-    stage: 'Quarter-finals',
-    dateLabel: '18 February',
-    teams: [
-      { name: 'Finland', flag: OLYMPIC_TEAM_FLAGS.Finland, seed: OLYMPIC_TEAM_SEEDS.Finland },
-      { name: 'Winner QPO4', flag: '🏒', sourceSlot: 'QPO4', sourceKind: 'winner' }
-    ]
-  }
-];
-
-const UEFA_STAGE_COLUMNS = [
-  ['Round of 16'],
-  ['Quarter-finals'],
-  ['Semi-finals'],
-  ['Final']
-] as const;
-
-const UEFA_ROUND_BY_SLOT: Record<string, number> = {
-  'R16-1': 1,
-  'R16-2': 1,
-  'R16-3': 1,
-  'R16-4': 1,
-  'R16-5': 1,
-  'R16-6': 1,
-  'R16-7': 1,
-  'R16-8': 1,
-  QF1: 2,
-  QF2: 2,
-  QF3: 2,
-  QF4: 2,
-  SF1: 3,
-  SF2: 3,
-  FINAL: 4
-};
-
-const UEFA_BASE_GAMES: OlympicBracketGame[] = [
-  { slot: 'R16-1', round: 1, stage: 'Round of 16', dateLabel: '10 March', teams: [{ name: 'Paris Saint-Germain', flag: '🇫🇷' }, { name: 'Chelsea', flag: '🏴' }] },
-  { slot: 'R16-2', round: 1, stage: 'Round of 16', dateLabel: '10 March', teams: [{ name: 'Galatasaray', flag: '🇹🇷' }, { name: 'Liverpool', flag: '🏴' }] },
-  { slot: 'R16-3', round: 1, stage: 'Round of 16', dateLabel: '10 March', teams: [{ name: 'Real Madrid', flag: '🇪🇸' }, { name: 'Manchester City', flag: '🏴' }] },
-  { slot: 'R16-4', round: 1, stage: 'Round of 16', dateLabel: '11 March', teams: [{ name: 'Atalanta', flag: '🇮🇹' }, { name: 'Bayern Munich', flag: '🇩🇪' }] },
-  { slot: 'R16-5', round: 1, stage: 'Round of 16', dateLabel: '11 March', teams: [{ name: 'Newcastle United', flag: '🏴' }, { name: 'Barcelona', flag: '🇪🇸' }] },
-  { slot: 'R16-6', round: 1, stage: 'Round of 16', dateLabel: '11 March', teams: [{ name: 'Atletico Madrid', flag: '🇪🇸' }, { name: 'Tottenham Hotspur', flag: '🏴' }] },
-  { slot: 'R16-7', round: 1, stage: 'Round of 16', dateLabel: '11 March', teams: [{ name: 'Bodo/Glimt', flag: '🇳🇴' }, { name: 'Sporting CP', flag: '🇵🇹' }] },
-  { slot: 'R16-8', round: 1, stage: 'Round of 16', dateLabel: '11 March', teams: [{ name: 'Bayer Leverkusen', flag: '🇩🇪' }, { name: 'Arsenal', flag: '🏴' }] },
-  { slot: 'QF1', round: 2, stage: 'Quarter-finals', dateLabel: '7 April', teams: [{ name: 'Winner R16-1', flag: '⚽', sourceSlot: 'R16-1', sourceKind: 'winner' }, { name: 'Winner R16-2', flag: '⚽', sourceSlot: 'R16-2', sourceKind: 'winner' }] },
-  { slot: 'QF2', round: 2, stage: 'Quarter-finals', dateLabel: '7 April', teams: [{ name: 'Winner R16-3', flag: '⚽', sourceSlot: 'R16-3', sourceKind: 'winner' }, { name: 'Winner R16-4', flag: '⚽', sourceSlot: 'R16-4', sourceKind: 'winner' }] },
-  { slot: 'QF3', round: 2, stage: 'Quarter-finals', dateLabel: '8 April', teams: [{ name: 'Winner R16-5', flag: '⚽', sourceSlot: 'R16-5', sourceKind: 'winner' }, { name: 'Winner R16-6', flag: '⚽', sourceSlot: 'R16-6', sourceKind: 'winner' }] },
-  { slot: 'QF4', round: 2, stage: 'Quarter-finals', dateLabel: '8 April', teams: [{ name: 'Winner R16-7', flag: '⚽', sourceSlot: 'R16-7', sourceKind: 'winner' }, { name: 'Winner R16-8', flag: '⚽', sourceSlot: 'R16-8', sourceKind: 'winner' }] },
-  { slot: 'SF1', round: 3, stage: 'Semi-finals', dateLabel: '28 April', teams: [{ name: 'Winner QF1', flag: '⚽', sourceSlot: 'QF1', sourceKind: 'winner' }, { name: 'Winner QF2', flag: '⚽', sourceSlot: 'QF2', sourceKind: 'winner' }] },
-  { slot: 'SF2', round: 3, stage: 'Semi-finals', dateLabel: '29 April', teams: [{ name: 'Winner QF3', flag: '⚽', sourceSlot: 'QF3', sourceKind: 'winner' }, { name: 'Winner QF4', flag: '⚽', sourceSlot: 'QF4', sourceKind: 'winner' }] },
-  { slot: 'FINAL', round: 4, stage: 'Final', dateLabel: '30 May', teams: [{ name: 'Winner SF1', flag: '⚽', sourceSlot: 'SF1', sourceKind: 'winner' }, { name: 'Winner SF2', flag: '⚽', sourceSlot: 'SF2', sourceKind: 'winner' }] }
-];
-
-const UEFA_TEAM_LOGOS: Record<string, string> = {
-  'Paris Saint-Germain': 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/Paris_Saint-Germain_F.C..svg/120px-Paris_Saint-Germain_F.C..svg.png',
-  PSG: 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/Paris_Saint-Germain_F.C..svg/120px-Paris_Saint-Germain_F.C..svg.png',
-  Chelsea: 'https://upload.wikimedia.org/wikipedia/en/thumb/c/cc/Chelsea_FC.svg/120px-Chelsea_FC.svg.png',
-  Galatasaray: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Galatasaray_Sports_Club_Logo.png',
-  Liverpool: 'https://upload.wikimedia.org/wikipedia/en/thumb/0/0c/Liverpool_FC.svg/120px-Liverpool_FC.svg.png',
-  'Real Madrid': 'https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/120px-Real_Madrid_CF.svg.png',
-  'Manchester City': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Manchester_City_FC_badge.svg/120px-Manchester_City_FC_badge.svg.png',
-  Atalanta: 'https://upload.wikimedia.org/wikipedia/en/thumb/6/66/Atalanta_BC_logo.svg/120px-Atalanta_BC_logo.svg.png',
-  'Bayern Munich': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg/120px-FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg.png',
-  'Newcastle United': 'https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Newcastle_United_Logo.svg/120px-Newcastle_United_Logo.svg.png',
-  Barcelona: 'https://upload.wikimedia.org/wikipedia/en/thumb/4/47/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png',
-  'FC Barcelona': 'https://upload.wikimedia.org/wikipedia/en/thumb/4/47/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png',
-  'Atletico Madrid': 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f4/Atletico_Madrid_2017_logo.svg/120px-Atletico_Madrid_2017_logo.svg.png',
-  'Atlético Madrid': 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f4/Atletico_Madrid_2017_logo.svg/120px-Atletico_Madrid_2017_logo.svg.png',
-  'Tottenham Hotspur': 'https://upload.wikimedia.org/wikipedia/en/thumb/b/b4/Tottenham_Hotspur.svg/120px-Tottenham_Hotspur.svg.png',
-  'Bodo/Glimt': 'https://upload.wikimedia.org/wikipedia/en/thumb/9/91/FK_Bod%C3%B8-Glimt_logo.svg/120px-FK_Bod%C3%B8-Glimt_logo.svg.png',
-  'Bodø/Glimt': 'https://upload.wikimedia.org/wikipedia/en/thumb/9/91/FK_Bod%C3%B8-Glimt_logo.svg/120px-FK_Bod%C3%B8-Glimt_logo.svg.png',
-  'Sporting CP': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Sporting_Clube_de_Portugal_%28Logo%29.svg/120px-Sporting_Clube_de_Portugal_%28Logo%29.svg.png',
-  Sporting: 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Sporting_Clube_de_Portugal_%28Logo%29.svg/120px-Sporting_Clube_de_Portugal_%28Logo%29.svg.png',
-  'Bayer Leverkusen': 'https://upload.wikimedia.org/wikipedia/en/thumb/5/59/Bayer_04_Leverkusen_logo.svg/120px-Bayer_04_Leverkusen_logo.svg.png',
-  Arsenal: 'https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Arsenal_FC.svg/120px-Arsenal_FC.svg.png'
-};
-
-const UEFA_OFFICIAL_TIME_SLOTS = new Set(['R16-1', 'R16-2', 'R16-3', 'R16-4', 'R16-5', 'R16-6', 'R16-7', 'R16-8', 'FINAL']);
-
-function uefaTeamLogoUrl(teamName: string): string | null {
-  return UEFA_TEAM_LOGOS[teamName] ?? null;
-}
-
-function isOfficialUefaKickoff(slot: string): boolean {
-  return UEFA_OFFICIAL_TIME_SLOTS.has(slot);
-}
-
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString();
-}
-
-function fmtDateEastern(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  }).format(new Date(iso));
-}
-
-function toLocalDateTimeValue(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return String(d.getFullYear()) + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-}
-
-function countdownWithin24h(iso: string | undefined, nowMs: number): string | null {
-  if (!iso) return null;
-
-  const targetMs = new Date(iso).getTime();
-  if (!Number.isFinite(targetMs)) return null;
-
-  const deltaMs = targetMs - nowMs;
-  if (deltaMs <= 0 || deltaMs > 24 * 60 * 60 * 1000) return null;
-
-  const totalMinutes = Math.floor(deltaMs / (60 * 1000));
-  if (totalMinutes <= 0) return 'in <1m';
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours <= 0) return 'in ' + minutes + 'm';
-  return 'in ' + hours + 'h ' + minutes + 'm';
-}
-
-type ContestSportFilter = 'ALL' | 'Basketball' | 'Olympics' | 'Football' | 'Hockey' | 'Baseball' | 'Soccer';
-type MarchRegionView = 'WEST' | 'EAST' | 'MIDWEST' | 'SOUTH' | 'FINAL_FOUR';
-
-function contestTypeLabel(contest: Pick<Contest, 'type' | 'name'>): string {
-  if (contest.type === 'PICKEM_NFL') return "NFL Pick'em";
-  if (contest.type === 'PICKEM_NBA') return "NBA Pick'em";
-  if (contest.type === 'PICKEM_NHL') return "NHL Pick'em";
-  if (contest.name.toLowerCase().includes('uefa') || contest.name.toLowerCase().includes('champions league')) return 'UEFA Champions League Bracket';
-  if (contest.name.toLowerCase().includes('olympic hockey')) return 'Olympic Hockey Bracket';
-  if (contest.name.toLowerCase().includes('conference tournament champions')) return "Conference Champions Pick'em";
-  return 'Bracket';
-}
-
-function contestMatchesSportFilter(contest: Pick<Contest, 'type' | 'name'>, filter: ContestSportFilter): boolean {
-  if (filter === 'ALL') return true;
-
-  const name = contest.name.toLowerCase();
-  const isBasketball = contest.type === 'PICKEM_NBA' || name.includes('nba') || name.includes('basketball') || name.includes('ncaam');
-  const isOlympics = name.includes('olympic');
-  const isFootball = contest.type === 'PICKEM_NFL' || name.includes('nfl') || name.includes('football');
-  const isHockey = contest.type === 'PICKEM_NHL' || name.includes('hockey') || name.includes('nhl');
-  const isBaseball = name.includes('baseball') || name.includes('mlb');
-  const isSoccer = name.includes('soccer') || name.includes('fifa') || name.includes('epl') || name.includes('premier league') || name.includes('uefa') || name.includes('champions league');
-
-  if (filter === 'Basketball') return isBasketball;
-  if (filter === 'Olympics') return isOlympics;
-  if (filter === 'Football') return isFootball;
-  if (filter === 'Hockey') return isHockey;
-  if (filter === 'Baseball') return isBaseball;
-  if (filter === 'Soccer') return isSoccer;
-
-  return true;
-}
-
-function nbaLogoUrl(teamName: string): string | null {
-  const key = teamName.trim();
-  const abbr = NBA_TEAM_ABBR[key] ?? NBA_TEAM_ALIAS_ABBR[key.toUpperCase()];
-  return abbr ? `/api/assets/logo/nba/${abbr}` : null;
-}
-
-function nhlLogoUrl(teamName: string): string | null {
-  const key = teamName.trim();
-  const abbr = NHL_TEAM_ABBR[key] ?? NHL_TEAM_ABBR[key.toUpperCase()];
-  return abbr ? `/api/assets/logo/nhl/${abbr}` : null;
-}
-
-function teamDisplayName(team: OlympicBracketTeam): string {
-  return team.seed ? `${team.seed} ${team.name}` : team.name;
-}
-
-function renderBracketTeamIcon(team: OlympicBracketTeam, logoUrl: string | null) {
-  if (!logoUrl) {
-    return <span className="flagBadge" aria-hidden="true">{team.flag}</span>;
-  }
-
-  return (
-    <>
-      <img
-        className="flagLogo"
-        src={logoUrl}
-        alt={team.name + ' logo'}
-        loading="lazy"
-        onError={(event) => {
-          const img = event.currentTarget;
-          img.style.display = 'none';
-          const fallback = img.nextElementSibling as HTMLElement | null;
-          if (fallback) {
-            fallback.style.display = 'grid';
-          }
-        }}
-      />
-      <span className="flagBadge teamIconFallback" aria-hidden="true">{team.flag}</span>
-    </>
-  );
-}
-
-function renderUefaTeamIcon(team: OlympicBracketTeam, logoUrl: string | null) {
-  if (!logoUrl) {
-    return <span className="flagBadge" aria-hidden="true">⚽</span>;
-  }
-
-  return (
-    <>
-      <img
-        className="flagLogo"
-        src={logoUrl}
-        alt={team.name + ' logo'}
-        loading="lazy"
-        onError={(event) => {
-          const img = event.currentTarget;
-          img.style.display = 'none';
-          const fallback = img.nextElementSibling as HTMLElement | null;
-          if (fallback) fallback.style.display = 'grid';
-        }}
-      />
-      <span className="flagBadge teamIconFallback" aria-hidden="true">⚽</span>
-    </>
-  );
-}
-
-function resolveFromSource(
-  sourceTeam: OlympicBracketTeam,
-  picks: Map<string, string>,
-  gamesBySlot: Map<string, OlympicBracketGame>
-): OlympicBracketTeam {
-  if (!sourceTeam.sourceSlot) return sourceTeam;
-
-  const sourceGame = gamesBySlot.get(sourceTeam.sourceSlot);
-  const pickedName = picks.get(sourceTeam.sourceSlot);
-  const sourceFallbackFlag = sourceTeam.flag || '🏒';
-
-  if (sourceTeam.sourceKind === 'winner') {
-    if (!sourceGame || !pickedName) {
-      return { name: `Winner ${sourceTeam.sourceSlot}`, flag: sourceFallbackFlag };
-    }
-    const pickedTeam = sourceGame.teams.find((team) => team.name === pickedName);
-    return pickedTeam ?? { name: pickedName, flag: OLYMPIC_TEAM_FLAGS[pickedName] ?? sourceFallbackFlag, seed: OLYMPIC_TEAM_SEEDS[pickedName] };
-  }
-
-  if (!sourceGame || !pickedName) {
-    return { name: `Loser ${sourceTeam.sourceSlot}`, flag: sourceFallbackFlag };
-  }
-
-  const loserTeam = sourceGame.teams.find((team) => team.name !== pickedName);
-  return loserTeam ?? { name: `Loser of ${sourceTeam.sourceSlot}`, flag: sourceFallbackFlag };
-}
-
-function pickWinnerOf(slot: string, picks: Map<string, string>, gamesBySlot: Map<string, OlympicBracketGame>): OlympicBracketTeam | null {
-  const game = gamesBySlot.get(slot);
-  if (!game) return null;
-
-  const pickedName = picks.get(slot);
-  if (!pickedName) return null;
-
-  return game.teams.find((team) => team.name === pickedName) ?? null;
-}
-
-function resolveOlympicBracketGames(picks: Map<string, string>): OlympicBracketGame[] {
-  const resolved: OlympicBracketGame[] = [];
-  const bySlot = new Map<string, OlympicBracketGame>();
-
-  for (const baseGame of OLYMPIC_BASE_GAMES) {
-    const teams: [OlympicBracketTeam, OlympicBracketTeam] = [
-      resolveFromSource(baseGame.teams[0], picks, bySlot),
-      resolveFromSource(baseGame.teams[1], picks, bySlot)
-    ];
-    const game: OlympicBracketGame = { ...baseGame, teams };
-    resolved.push(game);
-    bySlot.set(game.slot, game);
-  }
-
-  const qfWinners = ['QF1', 'QF2', 'QF3', 'QF4']
-    .map((slot) => pickWinnerOf(slot, picks, bySlot))
-    .filter((team): team is OlympicBracketTeam => !!team);
-
-  let sfTeams: [OlympicBracketTeam, OlympicBracketTeam, OlympicBracketTeam, OlympicBracketTeam] | null = null;
-  if (qfWinners.length === 4 && qfWinners.every((team) => typeof team.seed === 'number')) {
-    const sorted = [...qfWinners].sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99));
-    sfTeams = [sorted[0], sorted[3], sorted[1], sorted[2]];
-  }
-
-  const sf1: OlympicBracketGame = {
-    slot: 'SF1',
-    round: 3,
-    stage: 'Semi-finals',
-    dateLabel: '20 February',
-    teams: sfTeams
-      ? [sfTeams[0], sfTeams[1]]
-      : [
-          resolveFromSource({ name: 'Winner QF1', flag: '🏒', sourceSlot: 'QF1', sourceKind: 'winner' }, picks, bySlot),
-          resolveFromSource({ name: 'Winner QF2', flag: '🏒', sourceSlot: 'QF2', sourceKind: 'winner' }, picks, bySlot)
-        ]
-  };
-
-  const sf2: OlympicBracketGame = {
-    slot: 'SF2',
-    round: 3,
-    stage: 'Semi-finals',
-    dateLabel: '20 February',
-    teams: sfTeams
-      ? [sfTeams[2], sfTeams[3]]
-      : [
-          resolveFromSource({ name: 'Winner QF3', flag: '🏒', sourceSlot: 'QF3', sourceKind: 'winner' }, picks, bySlot),
-          resolveFromSource({ name: 'Winner QF4', flag: '🏒', sourceSlot: 'QF4', sourceKind: 'winner' }, picks, bySlot)
-        ]
-  };
-
-  resolved.push(sf1, sf2);
-  bySlot.set(sf1.slot, sf1);
-  bySlot.set(sf2.slot, sf2);
-
-  const gold: OlympicBracketGame = {
-    slot: 'GOLD',
-    round: 4,
-    stage: 'Gold medal game',
-    dateLabel: '22 February',
-    teams: [
-      resolveFromSource({ name: 'Winner SF1', flag: '🏒', sourceSlot: 'SF1', sourceKind: 'winner' }, picks, bySlot),
-      resolveFromSource({ name: 'Winner SF2', flag: '🏒', sourceSlot: 'SF2', sourceKind: 'winner' }, picks, bySlot)
-    ]
-  };
-
-  const bronze: OlympicBracketGame = {
-    slot: 'BRONZE',
-    round: 3,
-    stage: 'Bronze medal game',
-    dateLabel: '21 February',
-    teams: [
-      resolveFromSource({ name: 'Loser SF1', flag: '🏒', sourceSlot: 'SF1', sourceKind: 'loser' }, picks, bySlot),
-      resolveFromSource({ name: 'Loser SF2', flag: '🏒', sourceSlot: 'SF2', sourceKind: 'loser' }, picks, bySlot)
-    ]
-  };
-
-  resolved.push(gold, bronze);
-
-  return resolved;
-}
-
-function resolveUefaBracketGames(picks: Map<string, string>): OlympicBracketGame[] {
-  const resolved: OlympicBracketGame[] = [];
-  const bySlot = new Map<string, OlympicBracketGame>();
-
-  for (const baseGame of UEFA_BASE_GAMES) {
-    const teams: [OlympicBracketTeam, OlympicBracketTeam] = [
-      resolveFromSource(baseGame.teams[0], picks, bySlot),
-      resolveFromSource(baseGame.teams[1], picks, bySlot)
-    ];
-    const game: OlympicBracketGame = { ...baseGame, teams };
-    resolved.push(game);
-    bySlot.set(game.slot, game);
-  }
-
-  return resolved;
-}
 
 type SpotModelRow = {
   row_id: number;
@@ -934,7 +230,7 @@ export default function App() {
 
   const [selectedContestId, setSelectedContestId] = useState('');
   const [contestPageId, setContestPageId] = useState('');
-  const [activeTopPage, setActiveTopPage] = useState<'home' | 'entries' | 'contest' | 'leaderboards' | 'groups' | 'user-stats'>('home');
+  const [activeTopPage, setActiveTopPage] = useState<AppPage>('home');
   const [marchBracketZoom, setMarchBracketZoom] = useState(100);
   const [marchRegionView, setMarchRegionView] = useState<MarchRegionView>('WEST');
   const [games, setGames] = useState<Game[]>([]);
@@ -994,7 +290,7 @@ export default function App() {
   const [isUserStatsLoading, setIsUserStatsLoading] = useState(false);
   const [statsUserId, setStatsUserId] = useState('');
   const marchBracketScrollerRef = useRef<HTMLDivElement | null>(null);
-  const [statsReturnPage, setStatsReturnPage] = useState<'home' | 'entries' | 'contest' | 'leaderboards' | 'groups'>('leaderboards');
+  const [statsReturnPage, setStatsReturnPage] = useState<StatsReturnPage>('leaderboards');
   const [contestViewEntry, setContestViewEntry] = useState<ParticipantContestEntry | null>(null);
 
   const selectedContest = useMemo(
@@ -1057,6 +353,14 @@ export default function App() {
       return normalized !== 'DRAFT' && normalized !== 'COMPLETE' && normalized !== 'COMPLETED';
     });
   }, [filteredContests]);
+  const openForPicksContests = useMemo(
+    () => activeContests.filter((contest) => contest.status.toUpperCase() === 'OPEN'),
+    [activeContests]
+  );
+  const lockedContests = useMemo(
+    () => activeContests.filter((contest) => contest.status.toUpperCase() !== 'OPEN'),
+    [activeContests]
+  );
   const filteredPriorEntries = useMemo(() => {
     const contestById = new Map(contests.map((contest) => [contest.id, contest]));
     return priorEntries.filter((entry) => {
@@ -1480,55 +784,6 @@ export default function App() {
 
   function isCurrentUser(rowUserId: string): boolean {
     return rowUserId.trim().toLowerCase() === userId.trim().toLowerCase();
-  }
-
-  function leaderboardDisplayName(row: LeaderboardRow): string {
-    return row.displayName;
-  }
-
-  function rankFromPoints(rows: Array<{ totalPoints: number }>, index: number): number {
-    if (index === 0) return 1;
-    let rank = 1;
-    for (let i = 1; i <= index; i += 1) {
-      if (rows[i].totalPoints < rows[i - 1].totalPoints) {
-        rank = i + 1;
-      }
-    }
-    return rank;
-  }
-
-  function rankFromTopOneCount(rows: Array<{ topOneCount: number }>, index: number): number {
-    if (index === 0) return 1;
-    let rank = 1;
-    for (let i = 1; i <= index; i += 1) {
-      if (rows[i].topOneCount < rows[i - 1].topOneCount) {
-        rank = i + 1;
-      }
-    }
-    return rank;
-  }
-
-  function rankForUserByPoints(rows: Array<{ userId: string; totalPoints: number }>, rowUserId: string): number | null {
-    const index = rows.findIndex((row) => row.userId.trim().toLowerCase() === rowUserId.trim().toLowerCase());
-    if (index < 0) return null;
-    return rankFromPoints(rows, index);
-  }
-
-  function percentileFromRank(totalEntries: number, rank: number): number {
-    if (totalEntries <= 1) return 100;
-    const percentile = ((totalEntries - rank) / (totalEntries - 1)) * 100;
-    return Math.max(0, Math.min(100, percentile));
-  }
-
-  function topOneCutoffPoints(rows: Array<{ totalPoints: number }>): number {
-    if (rows.length === 0) return Number.POSITIVE_INFINITY;
-    const topCount = Math.max(1, Math.ceil(rows.length * 0.01));
-    return rows[Math.min(rows.length - 1, topCount - 1)].totalPoints;
-  }
-
-  function isTopOnePercentEntry(rows: Array<{ totalPoints: number }>, row: { totalPoints: number }): boolean {
-    const cutoff = topOneCutoffPoints(rows);
-    return row.totalPoints >= cutoff;
   }
 
   async function openParticipantContestEntry(contestId: string, participantUserId: string) {
@@ -2213,6 +1468,21 @@ export default function App() {
     }
   }
 
+  function onDraftPickemTeam(gameId: string, pickedWinner: string) {
+    if (isViewingContestParticipantEntry) return;
+    setPickDraft((prev) => ({
+      ...prev,
+      [gameId]: { ...(prev[gameId] ?? { confidencePoints: '' }), pickedWinner }
+    }));
+  }
+
+  function onDraftConfidence(gameId: string, value: string) {
+    setPickDraft((prev) => ({
+      ...prev,
+      [gameId]: { ...(prev[gameId] ?? { pickedWinner: '' }), confidencePoints: value.replace(/[^0-9]/g, '') }
+    }));
+  }
+
   async function onSelectNbaTeam(game: Game, pickedWinner: string) {
     if (!selectedContestId || !isStraightPickemContest || isViewingContestParticipantEntry) return;
     setError('');
@@ -2551,7 +1821,7 @@ export default function App() {
     if (!authToken) return;
 
     const currentPage = activeTopPage === 'user-stats' ? statsReturnPage : activeTopPage;
-    setStatsReturnPage(currentPage as 'home' | 'entries' | 'contest' | 'leaderboards' | 'groups');
+    setStatsReturnPage(currentPage as StatsReturnPage);
 
     setError('');
     setStatsUserId(targetUserId);
@@ -2617,6 +1887,24 @@ export default function App() {
     setTimeout(() => scrollToSection('contest-detail'), 0);
   }
 
+  function contestPrimaryAction(contest: Contest): { label: string; tone: 'primary' | 'secondary' } {
+    const normalized = contest.status.toUpperCase();
+    const entry = entryByContestId.get(contest.id);
+
+    if (normalized === 'DRAFT') {
+      return { label: 'Preview', tone: 'secondary' };
+    }
+    if (normalized === 'OPEN') {
+      if (!entry) return { label: 'Make Picks', tone: 'primary' };
+      if (!entry.isComplete) return { label: 'Finish Picks', tone: 'primary' };
+      return { label: 'Edit Picks', tone: 'primary' };
+    }
+    if (normalized === 'LOCKED') {
+      return { label: entry ? 'View My Picks' : 'View Contest', tone: 'secondary' };
+    }
+    return { label: entry ? 'View Results' : 'View Leaderboard', tone: 'secondary' };
+  }
+
   function openContestLeaderboard(contestId: string) {
     setSelectedLeaderboardContestId(contestId);
     setSelectedLeaderboardEntry(null);
@@ -2647,17 +1935,77 @@ export default function App() {
     setTimeout(() => scrollToSection('contests-page'), 0);
   }
 
+  function goHome() {
+    if (contestPageId) {
+      closeContestPage();
+    } else {
+      setActiveTopPage('home');
+      setTimeout(() => scrollToSection('home'), 0);
+    }
+  }
+
   return (
     <div className="page">
-      <header className="hero" id="home">
-        <div className="wordmark">The 1%</div>
-        {authToken && <nav className="topNav" aria-label="Primary">
-          <button className="navBtn" onClick={() => { if (contestPageId) { closeContestPage(); } else { setActiveTopPage('home'); setTimeout(() => scrollToSection('home'), 0); } }}>Home</button>
-          <button className="navBtn" aria-current={activeTopPage === 'entries' ? 'page' : undefined} onClick={() => { setActiveTopPage('entries'); setTimeout(() => scrollToSection('my-entries-page'), 0); }}>My Entries</button>
-          <button className="navBtn" onClick={() => { setSelectedLeaderboardContestId(''); setSelectedLeaderboardEntry(null); setLeaderboardEntryContestId(''); setActiveTopPage('leaderboards'); setTimeout(() => scrollToSection('leaderboards-page'), 0); }}>Leaderboards</button>
-          <button className="navBtn" onClick={() => { setSelectedGroupContestId(selectedContestId || ''); setActiveTopPage('groups'); setTimeout(() => scrollToSection('groups-page'), 0); }}>Groups</button>
-          <button className="navBtn" onClick={() => { if (contestPageId) { closeContestPage(); } else { setActiveTopPage('home'); setTimeout(() => scrollToSection('my-1'), 0); } }}>My 1%</button>
-        </nav>}
+      <header className="appHeader" id="home">
+        <button type="button" className="brand" onClick={goHome} aria-label="The 1% home">
+          <img src="/logo-the-1-percent.svg" alt="" className="brandLogo" />
+          <span className="brandWordmark">The 1%</span>
+        </button>
+
+        {authToken ? (
+          <>
+            <nav className="primaryNav" aria-label="Primary">
+              <button
+                type="button"
+                className="navItem"
+                aria-current={activeTopPage === 'home' && !contestPageId ? 'page' : undefined}
+                onClick={goHome}
+              >
+                <NavIcon d={ICON_CONTESTS} />
+                <span>Contests</span>
+              </button>
+              <button
+                type="button"
+                className="navItem"
+                aria-current={activeTopPage === 'entries' ? 'page' : undefined}
+                onClick={() => { setActiveTopPage('entries'); setTimeout(() => scrollToSection('my-entries-page'), 0); }}
+              >
+                <NavIcon d={ICON_ENTRIES} />
+                <span>Entries</span>
+              </button>
+              <button
+                type="button"
+                className="navItem"
+                aria-current={activeTopPage === 'leaderboards' ? 'page' : undefined}
+                onClick={() => { setSelectedLeaderboardContestId(''); setSelectedLeaderboardEntry(null); setLeaderboardEntryContestId(''); setActiveTopPage('leaderboards'); setTimeout(() => scrollToSection('leaderboards-page'), 0); }}
+              >
+                <NavIcon d={ICON_LEADERBOARD} />
+                <span>Leaderboards</span>
+              </button>
+              <button
+                type="button"
+                className="navItem"
+                aria-current={activeTopPage === 'groups' ? 'page' : undefined}
+                onClick={() => { setSelectedGroupContestId(selectedContestId || ''); setActiveTopPage('groups'); setTimeout(() => scrollToSection('groups-page'), 0); }}
+              >
+                <NavIcon d={ICON_GROUPS} />
+                <span>Groups</span>
+              </button>
+              <button
+                type="button"
+                className="navItem"
+                aria-current={activeTopPage === 'profile' ? 'page' : undefined}
+                onClick={() => { setActiveTopPage('profile'); setTimeout(() => scrollToSection('profile-page'), 0); }}
+              >
+                <NavIcon d={ICON_PROFILE} />
+                <span>Profile</span>
+              </button>
+            </nav>
+            <button type="button" className="iconBtn headerRefresh" onClick={() => refreshAll()} aria-label="Refresh">
+              <NavIcon d={ICON_REFRESH} />
+            </button>
+          </>
+        ) : null}
       </header>
 
       {!authToken ? (
@@ -2685,15 +2033,23 @@ export default function App() {
         </section>
       ) : (
         <>
-          <section className="card row between" id="my-1">
-            <div>
-              <strong>{displayName || currentUserEmail || userId.slice(0, 8)}</strong>
-            </div>
-            <div className="row gap">
-              <button onClick={() => refreshAll()} className="secondary">Refresh</button>
-              <button onClick={logout} className="secondary">Logout</button>
-            </div>
-          </section>
+          {activeTopPage === 'profile' ? (
+            <section className="card lift" id="profile-page">
+              <div className="profileHeader">
+                <div className="profileAvatar" aria-hidden="true">{(displayName || currentUserEmail || '?').slice(0, 1).toUpperCase()}</div>
+                <div>
+                  <h2>{displayName || currentUserEmail || userId.slice(0, 8)}</h2>
+                  {currentUserEmail ? <p className="muted">{currentUserEmail}</p> : null}
+                  {isContestCreator ? <span className="entryBadge entered">Contest Creator</span> : null}
+                </div>
+              </div>
+              <div className="row gap profileActions">
+                <button type="button" onClick={() => void onOpenUserStats(userId)}>View My Stats</button>
+                <button type="button" className="secondary" onClick={() => refreshAll()}>Refresh Data</button>
+                <button type="button" className="secondary" onClick={logout}>Logout</button>
+              </div>
+            </section>
+          ) : null}
 
           {activeTopPage === 'entries' ? (
             <section className="card lift" id="my-entries-page">
@@ -3110,32 +2466,63 @@ export default function App() {
           ) : (
             <>
               {activeTopPage === 'home' && !contestPageId ? (
-                <section className="card lift" id="contests-page">
-                  <h2>Active Contests</h2>
-                  <ul className="list">
-                    {activeContests.map((contest) => {
+                <section className="card lift contestsOpenSection" id="contests-page">
+                  <h2>Open Now</h2>
+                  <p className="muted">Pick now before these lock.</p>
+                  {openForPicksContests.length === 0 ? (
+                    <p className="muted">No contests open for picks right now.</p>
+                  ) : (
+                    <ul className="list contestCardList">
+                      {openForPicksContests.map((contest) => {
+                        const contestEntry = entryByContestId.get(contest.id);
+                        const hasEntered = !!contestEntry;
+                        const isComplete = contestEntry?.isComplete === true;
+                        const lockCountdown = countdownWithin24h(contest.lockAt, nowMs);
+                        const lockLabel = contest.lockAt ? fmtDateEastern(contest.lockAt) + ' ET' : null;
+                        const action = contestPrimaryAction(contest);
+
+                        return (
+                          <li key={contest.id} className="contestCard">
+                            <div className="contestCardMain">
+                              <button type="button" className="contestNameLink" onClick={() => openContestPage(contest.id)}>{contest.name}</button>
+                              <span className="contestMeta">{contestTypeLabel(contest)}</span>
+                              {lockLabel ? (
+                                <span className="contestTimingLine">
+                                  <span>Locks {lockLabel}{lockCountdown ? ` (${lockCountdown})` : ''}</span>
+                                </span>
+                              ) : null}
+                              <span className={isComplete ? 'entryBadge entered' : hasEntered ? 'entryBadge incomplete' : 'entryBadge notEntered'}>{isComplete ? 'Entered' : hasEntered ? 'Entry Not Complete' : 'Not Entered'}</span>
+                            </div>
+                            <button type="button" className="ctaBtn" onClick={() => openContestPage(contest.id)}>{action.label}</button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+              ) : null}
+
+              {activeTopPage === 'home' && !contestPageId && lockedContests.length > 0 ? (
+                <section className="card lift" id="contests-locked-page">
+                  <h2>In Progress</h2>
+                  <p className="muted">Picks are locked. Follow along on the leaderboard.</p>
+                  <ul className="list contestCardList">
+                    {lockedContests.map((contest) => {
                       const contestEntry = entryByContestId.get(contest.id);
                       const hasEntered = !!contestEntry;
-                      const isComplete = contestEntry?.isComplete === true;
-                      const startCountdown = countdownWithin24h(contest.startsAt || contest.startTime, nowMs);
-                      const lockCountdown = countdownWithin24h(contest.lockAt, nowMs);
                       const endCountdown = countdownWithin24h(contest.endAt, nowMs);
-                      const startLabel = fmtDateEastern(contest.startsAt || contest.startTime || contest.startsAt) + ' ET';
-                      const lockLabel = contest.lockAt ? fmtDateEastern(contest.lockAt) + ' ET' : null;
                       const endLabel = contest.endAt ? fmtDateEastern(contest.endAt) + ' ET' : null;
+                      const action = contestPrimaryAction(contest);
 
                       return (
-                        <li key={contest.id}>
-                          <div className="contestListMain">
+                        <li key={contest.id} className="contestCard contestCardCompact">
+                          <div className="contestCardMain">
                             <button type="button" className="contestNameLink" onClick={() => openContestPage(contest.id)}>{contest.name}</button>
-                            <span>{contestTypeLabel(contest)} · {contest.status}</span>
-                            <span className="contestTimingLine">
-                              <span>Start: {startLabel}{startCountdown ? ` (${startCountdown})` : ''}</span>
-                              {lockLabel ? <span>Lock: {lockLabel}{lockCountdown ? ` (${lockCountdown})` : ''}</span> : null}
-                              {endLabel ? <span>End: {endLabel}{endCountdown ? ` (${endCountdown})` : ''}</span> : null}
-                            </span>
+                            <span className="contestMeta">{contestTypeLabel(contest)} · {contest.status}</span>
+                            {endLabel ? <span className="contestTimingLine"><span>Ends {endLabel}{endCountdown ? ` (${endCountdown})` : ''}</span></span> : null}
+                            <span className={hasEntered ? 'entryBadge entered' : 'entryBadge notEntered'}>{hasEntered ? 'Entered' : 'Not Entered'}</span>
                           </div>
-                          <span className={isComplete ? 'entryBadge entered' : hasEntered ? 'entryBadge incomplete' : 'entryBadge notEntered'}>{isComplete ? 'Entered' : hasEntered ? 'Entry Not Complete' : 'Not Entered'}</span>
+                          <button type="button" className="secondary" onClick={() => openContestPage(contest.id)}>{action.label}</button>
                         </li>
                       );
                     })}
@@ -3143,9 +2530,9 @@ export default function App() {
                 </section>
               ) : null}
 
-              {activeTopPage === 'home' && !contestPageId ? (
+              {activeTopPage === 'home' && !contestPageId && (upcomingDraftContests.length > 0 || PLANNED_UPCOMING_CONTESTS.length > 0) ? (
                 <section className="card lift" id="upcoming-contests-page">
-                  <h2>Upcoming Contests</h2>
+                  <h2>Upcoming</h2>
                   <ul className="list">
                     {upcomingDraftContests.map((contest) => (
                       <li key={contest.id}>
@@ -3160,48 +2547,64 @@ export default function App() {
                 </section>
               ) : null}
 
-              {activeTopPage === 'home' && !contestPageId ? (
-                <section className="card lift" id="prior-contests-page">
-                  <h2>Prior Contests</h2>
+              {activeTopPage === 'home' && !contestPageId && filteredPriorEntries.length > 0 ? (
+                <details className="card lift collapsibleCard" id="prior-contests-page">
+                  <summary><h2>Completed</h2></summary>
                   <ul className="list">
                     {filteredPriorEntries.map((entry) => {
                       const contest = contests.find((c) => c.id === entry.contestId);
+                      const action = contest ? contestPrimaryAction(contest) : { label: 'View Results' };
                       return (
                         <li key={entry.id}>
                           <strong>{contest?.name ?? entry.contestId}</strong>
                           <span>{entry.totalPoints} pts</span>
-                          <button type="button" className="secondary" onClick={() => openContestPage(entry.contestId)}>Open Contest</button>
+                          <button type="button" className="secondary" onClick={() => openContestPage(entry.contestId)}>{action.label}</button>
                         </li>
                       );
                     })}
                   </ul>
-                </section>
+                </details>
               ) : null}
 
-              {activeTopPage === 'contest' && contestPageId && selectedContest ? (
-                <section className="card lift" id="contest-detail">
-                  <div className="row between gap">
-                    <div>
-                      <h2>{selectedContest.name}</h2>
-                      <p className="muted">Contest page: your entry, groups, and leaderboard for this contest.</p>
-                      <div className="entryStatsBar">
-                        <div className="entryStat">
-                          <span className="entryStatLabel">Points</span>
-                          <span className="entryStatValue">{displayedEntryPoints}</span>
-                        </div>
-                        <span className="entryStatDivider" aria-hidden="true" />
-                        <div className="entryStat">
-                          <span className="entryStatLabel">Rank</span>
-                          <span className="entryStatValue">{displayedEntryRank ?? '-'}</span>
-                        </div>
-                        <span className="entryStatDivider" aria-hidden="true" />
-                        <div className="entryStat">
-                          <span className="entryStatLabel">Percentile</span>
-                          <span className="entryStatValue">{displayedEntryPercentile !== null ? `${displayedEntryPercentile.toFixed(2)}%` : '-'}</span>
-                        </div>
+              {activeTopPage === 'contest' && contestPageId && selectedContest ? (() => {
+                const primaryAction = contestPrimaryAction(selectedContest);
+                const primaryOnClick = primaryAction.label === 'View Leaderboard'
+                  ? () => openContestLeaderboard(selectedContest.id)
+                  : () => scrollToSection('contest-workspace');
+                const lockCountdown = countdownWithin24h(selectedContest.lockAt, nowMs);
+                const lockLabel = selectedContest.lockAt ? fmtDateEastern(selectedContest.lockAt) + ' ET' : null;
+
+                return (
+                  <section className="card lift contestDetailHeader" id="contest-detail">
+                    <div className="row between gap contestDetailTop">
+                      <div>
+                        <span className={'statusPill statusPill-' + selectedContest.status.toLowerCase()}>{selectedContest.status}</span>
+                        <h2>{selectedContest.name}</h2>
+                        <p className="muted">{contestTypeLabel(selectedContest)}{lockLabel ? ` · Locks ${lockLabel}${lockCountdown ? ` (${lockCountdown})` : ''}` : ''}</p>
+                      </div>
+                      <button type="button" className="secondary" onClick={closeContestPage}>Back to Contests</button>
+                    </div>
+
+                    <div className="entryStatsBar">
+                      <div className="entryStat">
+                        <span className="entryStatLabel">Points</span>
+                        <span className="entryStatValue">{displayedEntryPoints}</span>
+                      </div>
+                      <span className="entryStatDivider" aria-hidden="true" />
+                      <div className="entryStat">
+                        <span className="entryStatLabel">Rank</span>
+                        <span className="entryStatValue">{displayedEntryRank ?? '-'}</span>
+                      </div>
+                      <span className="entryStatDivider" aria-hidden="true" />
+                      <div className="entryStat">
+                        <span className="entryStatLabel">Percentile</span>
+                        <span className="entryStatValue">{displayedEntryPercentile !== null ? `${displayedEntryPercentile.toFixed(2)}%` : '-'}</span>
                       </div>
                     </div>
-                    <div className="row gap">
+
+                    <div className="row gap contestDetailActions">
+                      <button type="button" className="ctaBtn ctaBtnLarge" onClick={primaryOnClick}>{primaryAction.label}</button>
+                      <button type="button" className="secondary" onClick={() => openContestLeaderboard(selectedContest.id)}>Leaderboard</button>
                       {isContestCreator ? (
                         <button
                           type="button"
@@ -3211,18 +2614,17 @@ export default function App() {
                           {selectedContest.status === 'DRAFT' ? 'Publish' : 'Send to Draft'}
                         </button>
                       ) : null}
-                      <button type="button" onClick={() => openContestLeaderboard(selectedContest.id)}>Leaderboard</button>
-                      <button type="button" className="secondary" onClick={closeContestPage}>Back to all contests</button>
                     </div>
-                  </div>
-                </section>
-              ) : null}
+                  </section>
+                );
+              })() : null}
 
 
 
               {activeTopPage === 'contest' && contestPageId && selectedContest && isContestCreator ? (
-                <section className="card lift adminStatusCard" id="contest-admin-status">
-                  <h3>System Status</h3>
+                <details className="card lift collapsibleCard adminPanel" id="contest-admin-status">
+                  <summary><h3>Admin Tools</h3></summary>
+                  <h4 className="adminSubheading">System Status</h4>
                   <div className="adminStatusGrid">
                     <article className="adminStatusItem">
                       <span className="adminStatusLabel">Backend</span>
@@ -3242,12 +2644,8 @@ export default function App() {
                   </div>
                   {databaseHealth?.error ? <p className="error">DB: {databaseHealth.error}</p> : null}
                   {workerHealth?.lastError ? <p className="error">Worker: {workerHealth.lastError}</p> : null}
-                </section>
-              ) : null}
 
-              {activeTopPage === 'contest' && contestPageId && selectedContest && isContestCreator ? (
-                <section className="card lift" id="contest-admin-tools">
-                  <h3>Admin Tools</h3>
+                  <h4 className="adminSubheading">Admin Actions</h4>
                   <div className="grid two">
                     <form className="stack" onSubmit={onCloneContest}>
                       <h4>Clone Contest</h4>
@@ -3321,7 +2719,7 @@ export default function App() {
                       <button type="submit">Save Override</button>
                     </form>
                   </div>
-                </section>
+                </details>
               ) : null}
 
               {activeTopPage === 'contest' && contestPageId && selectedContest ? (
@@ -3541,7 +2939,72 @@ export default function App() {
                     </section>
                   ) : null}
 
-                  {!isGamesLoading && games.length > 0 && !isMarchMadnessStandardContest && !isOlympicBracketContest && !isUefaBracketContest && !isConferenceChampionsContest ? (
+                  {!isGamesLoading && isPickemContest ? (
+                    <form className="pickemBoard" onSubmit={onSubmitPicks}>
+                      {games.map((game) => {
+                        const savedRow = savedPickRowByGame.get(game.id);
+                        const draft = pickDraft[game.id];
+                        const selectedWinner = draft?.pickedWinner || savedRow?.pickedWinner || '';
+                        const awayResult =
+                          savedRow?.pickedWinner === game.awayTeam && savedRow.isCorrect !== null
+                            ? savedRow.isCorrect
+                              ? <span className="saveCheck" aria-label="Correct">✓</span>
+                              : <span className="saveMiss" aria-label="Wrong">✕</span>
+                            : null;
+                        const homeResult =
+                          savedRow?.pickedWinner === game.homeTeam && savedRow.isCorrect !== null
+                            ? savedRow.isCorrect
+                              ? <span className="saveCheck" aria-label="Correct">✓</span>
+                              : <span className="saveMiss" aria-label="Wrong">✕</span>
+                            : null;
+
+                        return (
+                          <article key={game.id} className="pickRow pickemGameCard">
+                            <div className="muted olympicMeta">{fmtDateEastern(game.startTime)} ET · {game.status}</div>
+                            <div className="olympicTeamButtons">
+                              <button
+                                type="button"
+                                className={'teamPickBtn ' + (selectedWinner === game.awayTeam ? 'selected' : '')}
+                                onClick={() => isStraightPickemContest ? void onSelectNbaTeam(game, game.awayTeam) : onDraftPickemTeam(game.id, game.awayTeam)}
+                                disabled={isSavedLoading || isViewingContestParticipantEntry}
+                              >
+                                <span>{game.awayTeam}</span>
+                                <span className="pickPct">{pickPercentFor(game.id, game.awayTeam)}</span>
+                                {awayResult}
+                              </button>
+                              <button
+                                type="button"
+                                className={'teamPickBtn ' + (selectedWinner === game.homeTeam ? 'selected' : '')}
+                                onClick={() => isStraightPickemContest ? void onSelectNbaTeam(game, game.homeTeam) : onDraftPickemTeam(game.id, game.homeTeam)}
+                                disabled={isSavedLoading || isViewingContestParticipantEntry}
+                              >
+                                <span>{game.homeTeam}</span>
+                                <span className="pickPct">{pickPercentFor(game.id, game.homeTeam)}</span>
+                                {homeResult}
+                              </button>
+                            </div>
+                            {selectedContest?.type === 'PICKEM_NFL' ? (
+                              <label className="confidenceInputRow">
+                                <span className="muted">Confidence points</span>
+                                <input
+                                  value={draft?.confidencePoints ?? ''}
+                                  onChange={(e) => onDraftConfidence(game.id, e.target.value)}
+                                  inputMode="numeric"
+                                  placeholder="e.g. 10"
+                                  disabled={isViewingContestParticipantEntry}
+                                />
+                              </label>
+                            ) : null}
+                          </article>
+                        );
+                      })}
+                      {selectedContest?.type === 'PICKEM_NFL' && !isViewingContestParticipantEntry ? (
+                        <button type="submit" className="ctaBtn">Submit Picks</button>
+                      ) : null}
+                    </form>
+                  ) : null}
+
+                  {!isGamesLoading && games.length > 0 && !isMarchMadnessStandardContest && !isOlympicBracketContest && !isUefaBracketContest && !isConferenceChampionsContest && !isPickemContest ? (
                     <div className="tableWrap">
                       <table>
                         <thead>
