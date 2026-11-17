@@ -1948,7 +1948,7 @@ export default function App() {
     <div className="page">
       <header className="appHeader" id="home">
         <button type="button" className="brand" onClick={goHome} aria-label="The 1% home">
-          <img src="/logo-the-1-percent.svg" alt="" className="brandLogo" />
+          <img src="/logo-the-1-percent.png" alt="" className="brandLogo" />
           <span className="brandWordmark">The 1%</span>
         </button>
 

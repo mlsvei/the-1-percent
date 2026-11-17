@@ -5,17 +5,18 @@ html {
 }
 
 :root {
-  --bg: #eef2ef;
-  --panel: #fffdf8;
-  --ink: #152d28;
-  --ink-soft: #4d655f;
-  --line: #d7e0d9;
-  --accent: #d95d39;
-  --accent-2: #2f6b5e;
-  --good: #2b7a4b;
-  --bad: #b62828;
-  --brand-green: #183930;
-  --gold: #e4b560;
+  --bg: #0a0a0a;
+  --panel: #19170f;
+  --ink: #f4ead2;
+  --ink-soft: #ab9b7c;
+  --line: #352c1b;
+  --accent: #e3b23c;
+  --accent-2: #8a6a2e;
+  --good: #4ad17e;
+  --bad: #ff6b6b;
+  --brand-black: #000000;
+  --gold: #e9c067;
+  --gold-bright: #f6dfa0;
   --radius-card: 16px;
   --radius-btn: 10px;
   --tabbar-height: 64px;
@@ -42,7 +43,8 @@ body {
 
 /* Header + primary navigation */
 .appHeader {
-  background: var(--brand-green);
+  background: var(--brand-black);
+  border-bottom: 1px solid var(--line);
   color: #fffdf8;
   padding: 10px 18px;
   margin-bottom: 16px;
@@ -158,7 +160,7 @@ h3 {
 }
 
 .lift {
-  box-shadow: 0 10px 26px rgba(21, 45, 40, 0.07);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
 }
 
 .collapsibleCard summary {
@@ -231,6 +233,13 @@ button {
 input,
 select {
   width: 100%;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+input::placeholder {
+  color: var(--ink-soft);
+  opacity: 0.8;
 }
 
 button {
@@ -268,10 +277,10 @@ button:disabled {
 }
 
 .ctaBtn {
-  background: linear-gradient(115deg, var(--accent), #f0975f);
-  color: #fff;
+  background: linear-gradient(115deg, var(--gold-bright), var(--accent));
+  color: #1a1407;
   font-weight: 800;
-  box-shadow: 0 8px 18px rgba(217, 93, 57, 0.28);
+  box-shadow: 0 8px 18px rgba(227, 178, 60, 0.3);
 }
 
 .ctaBtnLarge {
@@ -288,24 +297,24 @@ button:disabled {
   padding: 3px 9px;
   border-radius: 999px;
   margin-bottom: 6px;
-  background: var(--line);
-  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink-soft), white 82%);
+  color: #3a3222;
 }
 
 .statusPill-open {
-  background: color-mix(in srgb, var(--good), white 75%);
-  color: var(--good);
+  background: color-mix(in srgb, var(--good), white 78%);
+  color: #1f6b3f;
 }
 
 .statusPill-locked {
-  background: color-mix(in srgb, var(--accent), white 80%);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--accent), white 78%);
+  color: #7a5a14;
 }
 
 .statusPill-complete,
 .statusPill-completed {
-  background: var(--line);
-  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink-soft), white 82%);
+  color: #3a3222;
 }
 
 .statusPill-draft {
@@ -365,8 +374,9 @@ td {
   width: min(1100px, 90vw);
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(21, 45, 40, 0.92);
-  color: #e8eef0;
+  background: rgba(25, 23, 15, 0.95);
+  border: 1px solid var(--line);
+  color: var(--ink);
   display: flex;
   justify-content: space-between;
   gap: 14px;
@@ -428,7 +438,7 @@ td {
     right: 0;
     bottom: 0;
     z-index: 70;
-    background: var(--brand-green);
+    background: var(--brand-black);
     border-top: 1px solid rgba(255, 255, 255, 0.12);
     justify-content: space-around;
     gap: 0;
@@ -565,19 +575,19 @@ td {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid rgba(236, 210, 155, 0.4);
+  border: 1px solid rgba(233, 192, 103, 0.3);
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.32);
-  color: #111111;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
   font-weight: 700;
   text-align: left;
 }
 
 .teamPickBtn.selected {
-  border-color: #ffd483;
-  box-shadow: 0 0 0 2px rgba(255, 212, 131, 0.25) inset;
-  background: rgba(255, 205, 103, 0.18);
-  color: #111111;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(227, 178, 60, 0.3) inset;
+  background: linear-gradient(115deg, var(--gold-bright), var(--accent));
+  color: #1a1407;
 }
 
 .teamPickBtn:disabled {
@@ -599,7 +609,7 @@ td {
 
 .saveCheck {
   margin-left: auto;
-  color: #1aa34a;
+  color: #3ddc84;
   font-size: 1.05rem;
   font-weight: 900;
   line-height: 1;
@@ -929,7 +939,7 @@ td {
 
 .saveMiss {
   margin-left: auto;
-  color: #c73333;
+  color: #ff6b6b;
   font-size: 1.05rem;
   font-weight: 900;
   line-height: 1;
@@ -939,18 +949,18 @@ td {
   background: none;
   border: none;
   padding: 0;
-  color: #0c2d4f;
+  color: var(--gold);
   text-decoration: underline;
   font-weight: 700;
   cursor: pointer;
 }
 
 .contestNameLink:hover {
-  color: #164b7a;
+  color: var(--gold-bright);
 }
 
 .leaderboardRank {
-  color: #4a5560;
+  color: var(--ink-soft);
   font-weight: 800;
   text-decoration: none;
 }
@@ -963,7 +973,7 @@ td {
   padding: 6px 0;
   margin-top: 8px;
   border-bottom: 1px solid var(--line);
-  color: #46555f;
+  color: var(--ink-soft);
   font-weight: 800;
   font-size: 0.82rem;
   text-transform: uppercase;
@@ -999,12 +1009,12 @@ td {
 
 .leaderboardPercentile {
   justify-self: center;
-  color: #3f4f5a;
+  color: var(--ink-soft);
   font-weight: 700;
 }
 
 .leaderboardPoints {
-  color: #233746;
+  color: var(--ink);
   font-weight: 700;
 }
 
@@ -1018,7 +1028,7 @@ td {
 }
 
 .leaderboardTopOneToggle label {
-  color: #233746;
+  color: var(--ink);
   font-weight: 700;
 }
 
@@ -1026,9 +1036,9 @@ td {
   margin-left: 18px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(26, 163, 74, 0.14);
-  border: 1px solid rgba(26, 163, 74, 0.35);
-  color: #1a7d47;
+  background: rgba(74, 209, 126, 0.16);
+  border: 1px solid rgba(74, 209, 126, 0.4);
+  color: #6fe3a0;
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -1049,15 +1059,15 @@ td {
 }
 
 .entryBadge.entered {
-  color: #146534;
-  background: rgba(28, 181, 89, 0.14);
-  border: 1px solid rgba(28, 181, 89, 0.35);
+  color: #6fe3a0;
+  background: rgba(74, 209, 126, 0.16);
+  border: 1px solid rgba(74, 209, 126, 0.4);
 }
 
 .entryBadge.notEntered {
-  color: #a31c1c;
-  background: rgba(220, 48, 48, 0.12);
-  border: 1px solid rgba(220, 48, 48, 0.3);
+  color: #ff8d8d;
+  background: rgba(255, 107, 107, 0.14);
+  border: 1px solid rgba(255, 107, 107, 0.38);
 }
 
 
@@ -1069,7 +1079,7 @@ td {
   padding: 6px 0;
   margin-top: 8px;
   border-bottom: 1px solid var(--line);
-  color: #46555f;
+  color: var(--ink-soft);
   font-weight: 800;
   font-size: 0.82rem;
   text-transform: uppercase;
@@ -1096,9 +1106,9 @@ td {
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: #5f430f;
-  background: rgba(255, 224, 144, 0.28);
-  border: 1px solid rgba(205, 156, 60, 0.4);
+  color: var(--gold-bright);
+  background: rgba(233, 192, 103, 0.18);
+  border: 1px solid rgba(233, 192, 103, 0.4);
 }
 
 
@@ -1525,9 +1535,9 @@ td {
 
 
 .entryBadge.incomplete {
-  color: #8a5a00;
-  background: rgba(245, 185, 30, 0.2);
-  border: 1px solid rgba(220, 160, 22, 0.45);
+  color: var(--gold-bright);
+  background: rgba(233, 192, 103, 0.16);
+  border: 1px solid rgba(233, 192, 103, 0.4);
 }
 
 .leaderboardNameCell {
@@ -1555,7 +1565,7 @@ td {
   padding: 10px;
   display: grid;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .statsTile strong {
@@ -2157,7 +2167,7 @@ td {
   flex-wrap: wrap;
   gap: 10px;
   font-size: 0.84rem;
-  color: #59686f;
+  color: var(--ink-soft);
 }
 
 .groupSelectRow {
@@ -2258,7 +2268,7 @@ td {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--brand-green);
+  background: var(--brand-black);
   color: var(--gold);
   display: flex;
   align-items: center;
@@ -2321,9 +2331,9 @@ td {
 }
 
 .pickemGameCard .teamPickBtn.selected {
-  background: color-mix(in srgb, var(--accent), white 82%);
+  background: linear-gradient(115deg, var(--gold-bright), var(--accent));
   border-color: var(--accent);
-  color: var(--ink);
+  color: #1a1407;
 }
 
 .confidenceInputRow {
