@@ -394,9 +394,28 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
   }
 }
 
+function readNflDateRange(scoringConfig: Record<string, unknown> | null): { fromDate: string; toDate: string } | null {
+  const raw = (scoringConfig?.nfl as { fromDate?: unknown; toDate?: unknown } | undefined) ?? undefined;
+  if (!raw || typeof raw.fromDate !== 'string' || typeof raw.toDate !== 'string') {
+    return null;
+  }
+  return { fromDate: raw.fromDate, toDate: raw.toDate };
+}
+
 async function syncNflContest(contest: ContestRow): Promise<{ syncedGames: number; changedGameIds: string[] }> {
   const schedule = await fetchNflSchedules(contest.season);
-  const normalized = schedule.map(normalizeNflSchedule);
+  let normalized = schedule.map(normalizeNflSchedule);
+
+  const range = readNflDateRange(contest.scoring_config);
+  if (range) {
+    const fromMs = new Date(`${range.fromDate}T00:00:00.000Z`).getTime();
+    const toMs = new Date(`${range.toDate}T23:59:59.999Z`).getTime();
+    normalized = normalized.filter((game) => {
+      const startMs = new Date(game.startTime).getTime();
+      return startMs >= fromMs && startMs <= toMs;
+    });
+  }
+
   return upsertContestGames(contest.id, normalized);
 }
 

@@ -193,6 +193,45 @@ function canonicalizeNbaTeamName(name: string): string {
   return NBA_TEAM_ALIASES[name] ?? name;
 }
 
+const NFL_TEAM_CODE_TO_NAME: Record<string, string> = {
+  ARI: 'Arizona Cardinals',
+  ATL: 'Atlanta Falcons',
+  BAL: 'Baltimore Ravens',
+  BUF: 'Buffalo Bills',
+  CAR: 'Carolina Panthers',
+  CHI: 'Chicago Bears',
+  CIN: 'Cincinnati Bengals',
+  CLE: 'Cleveland Browns',
+  DAL: 'Dallas Cowboys',
+  DEN: 'Denver Broncos',
+  DET: 'Detroit Lions',
+  GB: 'Green Bay Packers',
+  HOU: 'Houston Texans',
+  IND: 'Indianapolis Colts',
+  JAX: 'Jacksonville Jaguars',
+  KC: 'Kansas City Chiefs',
+  LAC: 'Los Angeles Chargers',
+  LAR: 'Los Angeles Rams',
+  LV: 'Las Vegas Raiders',
+  MIA: 'Miami Dolphins',
+  MIN: 'Minnesota Vikings',
+  NE: 'New England Patriots',
+  NO: 'New Orleans Saints',
+  NYG: 'New York Giants',
+  NYJ: 'New York Jets',
+  PHI: 'Philadelphia Eagles',
+  PIT: 'Pittsburgh Steelers',
+  SEA: 'Seattle Seahawks',
+  SF: 'San Francisco 49ers',
+  TB: 'Tampa Bay Buccaneers',
+  TEN: 'Tennessee Titans',
+  WAS: 'Washington Commanders'
+};
+
+function canonicalizeNflTeamName(name: string): string {
+  return NFL_TEAM_CODE_TO_NAME[name.trim().toUpperCase()] ?? name;
+}
+
 const NHL_TEAM_CODE_ALIASES: Record<string, string> = {
   NJD: 'NJ',
   WSH: 'WAS',
@@ -632,7 +671,13 @@ function normalizeCommonGame(item: AnyRecord): {
 
 export function normalizeNflSchedule(item: NflScheduleItem): NormalizedGame {
   const normalized = normalizeCommonGame(asRecord(item));
-  return { ...normalized, sport: 'NFL' };
+  const homeTeam = canonicalizeNflTeamName(normalized.homeTeam);
+  const awayTeam = canonicalizeNflTeamName(normalized.awayTeam);
+  let winner = normalized.winner;
+  if (winner) {
+    winner = canonicalizeNflTeamName(winner);
+  }
+  return { ...normalized, sport: 'NFL', homeTeam, awayTeam, winner };
 }
 
 export function normalizeNbaGame(item: NbaGameItem): NormalizedGame {
