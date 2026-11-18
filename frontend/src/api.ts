@@ -65,6 +65,7 @@ export type Contest = {
   startTime?: string;
   lockAt?: string;
   endAt?: string;
+  scoringConfig?: { pickem?: { useConfidence?: boolean } } | null;
 };
 
 export type Group = {

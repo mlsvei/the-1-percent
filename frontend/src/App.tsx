@@ -387,10 +387,8 @@ export default function App() {
     return filteredLeaderboardContests.filter((contest) => contest.id === selectedLeaderboardContestId);
   }, [filteredLeaderboardContests, selectedLeaderboardContestId]);
 
-  const isNbaContest = selectedContest?.type === 'PICKEM_NBA';
-  const isNhlContest = selectedContest?.type === 'PICKEM_NHL';
-  const isStraightPickemContest = isNbaContest || isNhlContest;
   const isPickemContest = selectedContest?.type === 'PICKEM_NFL' || selectedContest?.type === 'PICKEM_NBA' || selectedContest?.type === 'PICKEM_NHL';
+  const isStraightPickemContest = isPickemContest && selectedContest?.scoringConfig?.pickem?.useConfidence !== true;
   const isOlympicBracketContest =
     selectedContest?.type === 'BRACKET_NCAAM' &&
     ((selectedContest.name.toLowerCase().includes('olympic') && selectedContest.name.toLowerCase().includes('hockey')) ||
@@ -1483,7 +1481,7 @@ export default function App() {
     }));
   }
 
-  async function onSelectNbaTeam(game: Game, pickedWinner: string) {
+  async function onSelectStraightPickemTeam(game: Game, pickedWinner: string) {
     if (!selectedContestId || !isStraightPickemContest || isViewingContestParticipantEntry) return;
     setError('');
 
@@ -2965,7 +2963,7 @@ export default function App() {
                               <button
                                 type="button"
                                 className={'teamPickBtn ' + (selectedWinner === game.awayTeam ? 'selected' : '')}
-                                onClick={() => isStraightPickemContest ? void onSelectNbaTeam(game, game.awayTeam) : onDraftPickemTeam(game.id, game.awayTeam)}
+                                onClick={() => isStraightPickemContest ? void onSelectStraightPickemTeam(game, game.awayTeam) : onDraftPickemTeam(game.id, game.awayTeam)}
                                 disabled={isSavedLoading || isViewingContestParticipantEntry}
                               >
                                 <span>{game.awayTeam}</span>
@@ -2975,7 +2973,7 @@ export default function App() {
                               <button
                                 type="button"
                                 className={'teamPickBtn ' + (selectedWinner === game.homeTeam ? 'selected' : '')}
-                                onClick={() => isStraightPickemContest ? void onSelectNbaTeam(game, game.homeTeam) : onDraftPickemTeam(game.id, game.homeTeam)}
+                                onClick={() => isStraightPickemContest ? void onSelectStraightPickemTeam(game, game.homeTeam) : onDraftPickemTeam(game.id, game.homeTeam)}
                                 disabled={isSavedLoading || isViewingContestParticipantEntry}
                               >
                                 <span>{game.homeTeam}</span>
@@ -2983,7 +2981,7 @@ export default function App() {
                                 {homeResult}
                               </button>
                             </div>
-                            {selectedContest?.type === 'PICKEM_NFL' ? (
+                            {!isStraightPickemContest ? (
                               <label className="confidenceInputRow">
                                 <span className="muted">Confidence points</span>
                                 <input
@@ -2998,7 +2996,7 @@ export default function App() {
                           </article>
                         );
                       })}
-                      {selectedContest?.type === 'PICKEM_NFL' && !isViewingContestParticipantEntry ? (
+                      {!isStraightPickemContest && !isViewingContestParticipantEntry ? (
                         <button type="submit" className="ctaBtn">Submit Picks</button>
                       ) : null}
                     </form>

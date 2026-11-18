@@ -338,6 +338,7 @@ contestsRouter.get('/contests/admin', requireUser, requireContestCreator, async 
             c.starts_at as "startsAt",
             c.lock_mode as "lockMode",
             c.status,
+            c.scoring_config as "scoringConfig",
             coalesce(min(g.start_time), c.starts_at) as "startTime",
             case
               when c.lock_mode = 'PER_GAME' then coalesce(max(g.start_time), c.starts_at)
@@ -346,7 +347,7 @@ contestsRouter.get('/contests/admin', requireUser, requireContestCreator, async 
             coalesce(max(g.start_time), c.starts_at) as "endAt"
      from contests c
      left join games g on g.contest_id = c.id
-     group by c.id, c.name, c.type, c.season, c.starts_at, c.lock_mode, c.status
+     group by c.id, c.name, c.type, c.season, c.starts_at, c.lock_mode, c.status, c.scoring_config
      order by c.starts_at asc`
   );
 
@@ -391,6 +392,7 @@ contestsRouter.get('/contests', async (_req, res) => {
             c.starts_at as "startsAt",
             c.lock_mode as "lockMode",
             c.status,
+            c.scoring_config as "scoringConfig",
             coalesce(min(g.start_time), c.starts_at) as "startTime",
             case
               when c.lock_mode = 'PER_GAME' then coalesce(max(g.start_time), c.starts_at)
@@ -400,7 +402,7 @@ contestsRouter.get('/contests', async (_req, res) => {
      from contests c
      left join games g on g.contest_id = c.id
      where c.status <> 'DRAFT'
-     group by c.id, c.name, c.type, c.season, c.starts_at, c.lock_mode, c.status
+     group by c.id, c.name, c.type, c.season, c.starts_at, c.lock_mode, c.status, c.scoring_config
      order by c.starts_at asc`
   );
 
