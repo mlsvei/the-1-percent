@@ -71,7 +71,7 @@ body {
 }
 
 .brandLogo {
-  height: 34px;
+  height: 48px;
   width: auto;
   display: block;
 }
@@ -2168,6 +2168,22 @@ td {
   gap: 10px;
   font-size: 0.84rem;
   color: var(--ink-soft);
+}
+
+.liveCountdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--gold);
+}
+
+.firstGameLockLine {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.firstGameLockLine .liveCountdown {
+  font-size: 1.05rem;
 }
 
 .groupSelectRow {

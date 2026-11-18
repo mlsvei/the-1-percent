@@ -64,6 +64,39 @@ function NavIcon({ d }: { d: string }) {
   );
 }
 
+function formatCountdownParts(deltaMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(deltaMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+  }
+  return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+}
+
+function LiveCountdown({ targetIso }: { targetIso: string }) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const targetMs = new Date(targetIso).getTime();
+  if (!Number.isFinite(targetMs)) return null;
+
+  const deltaMs = targetMs - nowMs;
+  if (deltaMs <= 0) return null;
+
+  return <span className="liveCountdown">{formatCountdownParts(deltaMs)}</span>;
+}
+
 const ICON_CONTESTS = 'M12 2 14.5 8.5 21 9.3 16.2 13.7 17.6 20.1 12 16.9 6.4 20.1 7.8 13.7 3 9.3 9.5 8.5 Z';
 const ICON_ENTRIES = 'M4 4h16v2H4zM4 11h16v2H4zM4 18h10v2H4z';
 const ICON_LEADERBOARD = 'M4 20V10h3v10zm6.5 0V4h3v16zm6.5 0v-7h3v7z';
@@ -2477,6 +2510,7 @@ export default function App() {
                         const isComplete = contestEntry?.isComplete === true;
                         const lockCountdown = countdownWithin24h(contest.lockAt, nowMs);
                         const lockLabel = contest.lockAt ? fmtDateEastern(contest.lockAt) + ' ET' : null;
+                        const firstGameLockIso = contest.startTime || contest.startsAt;
                         const action = contestPrimaryAction(contest);
 
                         return (
@@ -2487,6 +2521,11 @@ export default function App() {
                               {lockLabel ? (
                                 <span className="contestTimingLine">
                                   <span>Locks {lockLabel}{lockCountdown ? ` (${lockCountdown})` : ''}</span>
+                                </span>
+                              ) : null}
+                              {firstGameLockIso ? (
+                                <span className="contestTimingLine">
+                                  <span>First game locks in <LiveCountdown targetIso={firstGameLockIso} /></span>
                                 </span>
                               ) : null}
                               <span className={isComplete ? 'entryBadge entered' : hasEntered ? 'entryBadge incomplete' : 'entryBadge notEntered'}>{isComplete ? 'Entered' : hasEntered ? 'Entry Not Complete' : 'Not Entered'}</span>
@@ -2571,6 +2610,7 @@ export default function App() {
                   : () => scrollToSection('contest-workspace');
                 const lockCountdown = countdownWithin24h(selectedContest.lockAt, nowMs);
                 const lockLabel = selectedContest.lockAt ? fmtDateEastern(selectedContest.lockAt) + ' ET' : null;
+                const firstGameLockIso = selectedContest.startTime || selectedContest.startsAt;
 
                 return (
                   <section className="card lift contestDetailHeader" id="contest-detail">
@@ -2579,6 +2619,9 @@ export default function App() {
                         <span className={'statusPill statusPill-' + selectedContest.status.toLowerCase()}>{selectedContest.status}</span>
                         <h2>{selectedContest.name}</h2>
                         <p className="muted">{contestTypeLabel(selectedContest)}{lockLabel ? ` · Locks ${lockLabel}${lockCountdown ? ` (${lockCountdown})` : ''}` : ''}</p>
+                        {firstGameLockIso ? (
+                          <p className="firstGameLockLine">First game locks in <LiveCountdown targetIso={firstGameLockIso} /></p>
+                        ) : null}
                       </div>
                       <button type="button" className="secondary" onClick={closeContestPage}>Back to Contests</button>
                     </div>
