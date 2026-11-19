@@ -2093,9 +2093,14 @@ export default function App() {
                   {activeEntries.map((entry) => {
                     const contest = contests.find((c) => c.id === entry.contestId);
                     return (
-                      <li key={entry.id}>
-                        <strong>{contest?.name ?? entry.contestId}</strong>
-                        <span>{contest ? `${contestTypeLabel(contest)} · ${contest.status}` : 'Contest'} · {entry.totalPoints} pts</span>
+                      <li key={entry.id} className="contestCard">
+                        <div className="contestCardMain">
+                          <strong>{contest?.name ?? entry.contestId}</strong>
+                          <span className="contestMeta">{contest ? `${contestTypeLabel(contest)} · ${contest.status}` : 'Contest'} · {entry.totalPoints} pts</span>
+                          <span className={entry.isComplete ? 'entryBadge entered' : 'entryBadge incomplete'}>
+                            {entry.isComplete ? 'All Picks Submitted' : 'Picks Incomplete'}
+                          </span>
+                        </div>
                         <button type="button" className="secondary" onClick={() => openContestPage(entry.contestId)}>Open Contest</button>
                       </li>
                     );
@@ -2259,8 +2264,7 @@ export default function App() {
                       <div className="leaderboardHeader">
                         <span>Rank</span>
                         <span>User name</span>
-                        <span>Percentile</span>
-                        <span>Points</span>
+                        <span className="leaderboardHeaderMeta"><span>Percentile</span><span>Points</span></span>
                       </div>
                       <ol className="list leaderboardList">
                       {leaderboardRows.map((row, index) => {
@@ -2275,22 +2279,26 @@ export default function App() {
                         return (
                           <li key={row.userId} className="leaderboardRow">
                             <span className="leaderboardRank">{rank}</span>
-                            <div className="leaderboardNameCell">
-                              <button
-                                type="button"
-                                className="contestNameLink"
-                                onClick={() => {
-                                  if (!selectedGroupContestId) return;
-                                  onLeaderboardNameClick(selectedGroupContestId, row.userId);
-                                }}
-                              >
-                                {row.displayName}
-                                {isTopOne ? <span className="topOneBadge">Top 1%</span> : null}
-                              </button>
-                              <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
+                            <div className="leaderboardEntryBody">
+                              <div className="leaderboardNameCell">
+                                <button
+                                  type="button"
+                                  className="contestNameLink"
+                                  onClick={() => {
+                                    if (!selectedGroupContestId) return;
+                                    onLeaderboardNameClick(selectedGroupContestId, row.userId);
+                                  }}
+                                >
+                                  {row.displayName}
+                                  {isTopOne ? <span className="topOneBadge">Top 1%</span> : null}
+                                </button>
+                                <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
+                              </div>
+                              <div className="leaderboardMeta">
+                                <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
+                                <span className="leaderboardPoints">{row.totalPoints} pts</span>
+                              </div>
                             </div>
-                            <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
-                            <span>{row.totalPoints} pts</span>
                           </li>
                         );
                       })}
@@ -2468,7 +2476,13 @@ export default function App() {
                   <article className="card lift" key={contest.id}>
                     <div className="row between gap"><h3>{contest.name}</h3><span className="muted">{contest.status}</span></div>
                     {rows.length === 0 ? <p className="muted">No entries yet.</p> : (
-                      <ol className="list leaderboardList">
+                      <>
+                        <div className="leaderboardHeader">
+                          <span>Rank</span>
+                          <span>User</span>
+                          <span className="leaderboardHeaderMeta"><span>Percentile</span><span>Points</span></span>
+                        </div>
+                        <ol className="list leaderboardList">
                         {rows.map((row, index) => {
                           const rank = rankFromPoints(rows, index);
                           const percentile = percentileFromRank(rows.length, rank);
@@ -2488,7 +2502,8 @@ export default function App() {
                             </li>
                           );
                         })}
-                      </ol>
+                        </ol>
+                      </>
                     )}
                   </article>
                 );

@@ -476,67 +476,32 @@ td {
     padding: 10px 12px;
   }
 
+  .leaderboardList .leaderboardRow {
+    grid-template-columns: 24px 1fr auto;
+    gap: 8px;
+    padding: 10px 2px;
+  }
+
   .leaderboardHeader {
-    display: none;
-  }
-
-  .leaderboardRow {
-    display: flex !important;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 4px;
-    padding: 10px 0;
-    border-bottom: 1px dashed var(--line);
-  }
-
-  .leaderboardEntryBody {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .leaderboardRank {
-    align-self: center;
-    font-size: 0.84rem;
-    flex: 0 0 auto;
-    justify-self: start;
-  }
-
-  .leaderboardNameCell {
-    display: flex;
-    align-items: center;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 2px;
-    flex: 1;
-    min-width: 0;
+    grid-template-columns: 24px 1fr auto;
+    gap: 8px;
   }
 
   .leaderboardNameCell .contestNameLink {
-    display: block;
-    min-width: 0;
-    max-width: 100%;
-    font-size: 0.96rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.92rem;
   }
 
   .leaderboardMeta {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 4px;
-    align-items: center;
-    flex: 0 0 auto;
-    justify-self: end;
-    white-space: nowrap;
+    gap: 10px;
   }
 
-  .leaderboardPercentile,
+  .leaderboardPercentile {
+    min-width: 46px;
+    font-size: 0.76rem;
+  }
+
   .leaderboardPoints {
+    min-width: 0;
     font-size: 0.76rem;
   }
 
@@ -959,63 +924,95 @@ td {
   color: var(--gold-bright);
 }
 
+.leaderboardList .leaderboardRow {
+  display: grid !important;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
 .leaderboardRank {
   color: var(--ink-soft);
   font-weight: 800;
+  font-size: 0.85rem;
+  text-align: center;
   text-decoration: none;
 }
 
 .leaderboardHeader {
   display: grid;
-  grid-template-columns: 80px 1fr 110px auto;
+  grid-template-columns: 32px 1fr auto;
   align-items: center;
-  gap: 8px;
-  padding: 6px 0;
+  gap: 12px;
+  padding: 6px 2px;
   margin-top: 8px;
   border-bottom: 1px solid var(--line);
   color: var(--ink-soft);
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.leaderboardHeader > span:first-child {
+  text-align: center;
+}
+
+.leaderboardHeaderMeta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-self: end;
+}
+
+.leaderboardHeaderMeta span:first-child {
+  min-width: 60px;
+  text-align: right;
+}
+
+.leaderboardHeaderMeta span:last-child {
+  min-width: 56px;
+  text-align: right;
 }
 
 .leaderboardList {
   margin-top: 0;
 }
 
-@media (width > 700px) {
-  .leaderboardRow {
-    display: grid;
-    grid-template-columns: 80px 1fr;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-  }
-
-  .leaderboardEntryBody {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 110px auto;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
+.leaderboardEntryBody {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
 }
 
 .leaderboardRow .contestNameLink {
-  justify-self: start;
   text-align: left;
 }
 
+.leaderboardMeta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .leaderboardPercentile {
-  justify-self: center;
+  min-width: 60px;
+  text-align: right;
   color: var(--ink-soft);
   font-weight: 700;
 }
 
 .leaderboardPoints {
+  min-width: 56px;
+  text-align: right;
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .leaderboardTopOneToggle {
@@ -1541,9 +1538,19 @@ td {
 }
 
 .leaderboardNameCell {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.leaderboardNameCell .contestNameLink {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .miniBtn {
