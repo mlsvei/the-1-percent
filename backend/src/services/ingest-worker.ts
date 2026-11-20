@@ -2,8 +2,8 @@ import { config } from '../config.js';
 import { getContestsForIngest, syncContestGames, type SyncContestResult } from './game-ingest.js';
 import { gradeContests } from './grading.js';
 
-const ACTIVE_INTERVAL_SECONDS = 60;
-const IDLE_INTERVAL_SECONDS = config.ingest.intervalSeconds;
+const ACTIVE_INTERVAL_SECONDS = 900;
+const IDLE_INTERVAL_SECONDS = Math.max(config.ingest.intervalSeconds, ACTIVE_INTERVAL_SECONDS);
 
 type WorkerStatus = {
   enabled: boolean;
