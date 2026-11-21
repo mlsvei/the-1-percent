@@ -65,7 +65,7 @@ export type Contest = {
   startTime?: string;
   lockAt?: string;
   endAt?: string;
-  scoringConfig?: { pickem?: { useConfidence?: boolean } } | null;
+  scoringConfig?: { pickem?: { useConfidence?: boolean }; tiebreaker?: { prompt?: string } } | null;
 };
 
 export type Group = {
@@ -243,6 +243,7 @@ export type SystemWorkerHealth = {
   lastSyncedContests: number;
   lastGradedContests: number;
   lastChangedEntries: number;
+  lastWarnings: string[];
 };
 
 export type UserStatsProfile = {

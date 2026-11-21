@@ -2205,6 +2205,19 @@ td {
   max-width: 220px;
 }
 
+.tiebreakerCard {
+  margin-top: 14px;
+}
+
+.tiebreakerCard input {
+  max-width: 220px;
+}
+
+.tiebreakerHint {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+}
+
 .adminStatusCard {
   margin-bottom: 14px;
 }
@@ -2241,6 +2254,15 @@ td {
 
 .adminStatusWarn {
   color: #f3d47b;
+}
+
+.adminWarningList {
+  margin-top: 8px;
+}
+
+.adminWarningList p {
+  margin: 2px 0;
+  font-size: 0.82rem;
 }
 
 /* Home: contest cards */

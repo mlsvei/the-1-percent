@@ -31,6 +31,26 @@ export type SyncContestResult = {
   changedGameIds: string[];
 };
 
+export class SuspiciousGameGrowthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SuspiciousGameGrowthError';
+  }
+}
+
+// If a sync would grow a contest's game list by more than this many games AND by more
+// than 3x its current size in a single pass, something is almost certainly wrong (e.g. a
+// date-range filter failing to apply, or a provider feed returning a full season instead
+// of the expected slate) - skip it rather than silently bloating the contest.
+const SUSPICIOUS_GAME_GROWTH_ABSOLUTE = 20;
+const SUSPICIOUS_GAME_GROWTH_MULTIPLE = 3;
+
+let lastIngestWarnings: string[] = [];
+
+export function getLastIngestWarnings(): string[] {
+  return lastIngestWarnings;
+}
+
 type ConferenceChampionSlot = {
   conference: string;
   slot: string;
@@ -305,6 +325,23 @@ function isPlaceholderTeam(name: string): boolean {
 }
 
 async function upsertContestGames(contestId: string, games: NormalizedGame[]): Promise<{ syncedGames: number; changedGameIds: string[] }> {
+  const existingCountResult = await query<{ count: string }>('select count(*)::text as count from games where contest_id = $1', [
+    contestId
+  ]);
+  const existingCount = Number(existingCountResult.rows[0]?.count ?? '0');
+
+  if (
+    existingCount > 0 &&
+    games.length - existingCount > SUSPICIOUS_GAME_GROWTH_ABSOLUTE &&
+    games.length > existingCount * SUSPICIOUS_GAME_GROWTH_MULTIPLE
+  ) {
+    throw new SuspiciousGameGrowthError(
+      `Refusing to sync contest ${contestId}: incoming batch has ${games.length} games vs ${existingCount} existing ` +
+        `(would grow by ${games.length - existingCount}, more than ${SUSPICIOUS_GAME_GROWTH_MULTIPLE}x). ` +
+        'This usually means a date filter did not apply or the provider returned an unexpectedly large feed. Sync skipped.'
+    );
+  }
+
   const client = await pool.connect();
   const changedGameIds: string[] = [];
 
@@ -613,6 +650,7 @@ export async function syncContestGames(args: {
   const includeBracketContests = args.includeBracketContests ?? true;
   const contests = await getContestsForIngest(args.contestId);
   const results: SyncContestResult[] = [];
+  lastIngestWarnings = [];
 
   for (const contest of contests) {
     try {
@@ -666,6 +704,9 @@ export async function syncContestGames(args: {
       results.push({ contestId: contest.id, contestName: contest.name, syncedGames: synced.syncedGames, changedGameIds: synced.changedGameIds });
     } catch (error) {
       console.error(`[game-ingest] Failed syncing contest ${contest.id}:`, error);
+      if (error instanceof SuspiciousGameGrowthError) {
+        lastIngestWarnings.push(`${contest.name} [${contest.id}]: ${error.message}`);
+      }
     }
   }
 

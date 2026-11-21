@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { getContestsForIngest, syncContestGames, type SyncContestResult } from './game-ingest.js';
+import { getContestsForIngest, getLastIngestWarnings, syncContestGames, type SyncContestResult } from './game-ingest.js';
 import { gradeContests } from './grading.js';
 
 const ACTIVE_INTERVAL_SECONDS = 900;
@@ -17,6 +17,7 @@ type WorkerStatus = {
   lastSyncedContests: number;
   lastGradedContests: number;
   lastChangedEntries: number;
+  lastWarnings: string[];
   nextRunAt: string | null;
 };
 
@@ -32,6 +33,7 @@ let workerStatus: WorkerStatus = {
   lastSyncedContests: 0,
   lastGradedContests: 0,
   lastChangedEntries: 0,
+  lastWarnings: [],
   nextRunAt: null
 };
 
@@ -92,6 +94,11 @@ async function runCycle(): Promise<void> {
     : 'none';
   console.log(`[ingest-worker] ${startedAt} graded ${gradingResults.length} contests; changed entries: ${changedEntries} :: ${gradingLog}`);
 
+  const warnings = getLastIngestWarnings();
+  if (warnings.length > 0) {
+    console.warn(`[ingest-worker] ${startedAt} blocked suspicious syncs :: ${warnings.join(' | ')}`);
+  }
+
   const completedAt = new Date().toISOString();
   workerStatus = {
     ...workerStatus,
@@ -100,7 +107,8 @@ async function runCycle(): Promise<void> {
     lastSucceededAt: completedAt,
     lastSyncedContests: ingestResults.length,
     lastGradedContests: gradingResults.length,
-    lastChangedEntries: changedEntries
+    lastChangedEntries: changedEntries,
+    lastWarnings: warnings
   };
 }
 

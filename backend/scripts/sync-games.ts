@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { pool } from '../src/db.js';
-import { syncContestGames } from '../src/services/game-ingest.js';
+import { getLastIngestWarnings, syncContestGames } from '../src/services/game-ingest.js';
 import { gradeContests } from '../src/services/grading.js';
 
 dotenv.config();
@@ -24,7 +24,7 @@ async function main() {
     source: 'INGEST_SYNC'
   });
 
-  console.log(JSON.stringify({ ok: true, ingestResults, gradingResults }, null, 2));
+  console.log(JSON.stringify({ ok: true, ingestResults, gradingResults, warnings: getLastIngestWarnings() }, null, 2));
 }
 
 main()

@@ -299,6 +299,7 @@ export default function App() {
   const [cloneStartsAt, setCloneStartsAt] = useState('');
   const [cloneIncludeGames, setCloneIncludeGames] = useState(true);
   const [tiebreakerGuess, setTiebreakerGuess] = useState('');
+  const tiebreakerSavedRef = useRef('');
   const [backendHealth, setBackendHealth] = useState<{ ok: boolean; service: string } | null>(null);
   const [databaseHealth, setDatabaseHealth] = useState<import('./api').SystemDbHealth | null>(null);
   const [workerHealth, setWorkerHealth] = useState<import('./api').SystemWorkerHealth | null>(null);
@@ -422,6 +423,7 @@ export default function App() {
 
   const isPickemContest = selectedContest?.type === 'PICKEM_NFL' || selectedContest?.type === 'PICKEM_NBA' || selectedContest?.type === 'PICKEM_NHL';
   const isStraightPickemContest = isPickemContest && selectedContest?.scoringConfig?.pickem?.useConfidence !== true;
+  const tiebreakerPrompt = selectedContest?.scoringConfig?.tiebreaker?.prompt ?? null;
   const isOlympicBracketContest =
     selectedContest?.type === 'BRACKET_NCAAM' &&
     ((selectedContest.name.toLowerCase().includes('olympic') && selectedContest.name.toLowerCase().includes('hockey')) ||
@@ -1167,7 +1169,8 @@ export default function App() {
               lastError: results[2].reason instanceof Error ? results[2].reason.message : 'Unavailable',
               lastSyncedContests: 0,
               lastGradedContests: 0,
-              lastChangedEntries: 0
+              lastChangedEntries: 0,
+              lastWarnings: []
             }
       );
     });
@@ -1234,6 +1237,7 @@ export default function App() {
     setSavedPicks([]);
     setSavedBracket([]);
     setTiebreakerGuess('');
+    tiebreakerSavedRef.current = '';
 
     if (!selectedContestId || !selectedContest) {
       setIsSavedLoading(false);
@@ -1252,6 +1256,7 @@ export default function App() {
         }));
         setSavedBracket(rows);
         setTiebreakerGuess(contestViewEntry.tiebreaker?.answer ?? '');
+        tiebreakerSavedRef.current = contestViewEntry.tiebreaker?.answer ?? '';
       } else {
         const rows = (contestViewEntry.picks as ParticipantEntryPickemPick[]).map((pick) => ({
           gameId: pick.gameId,
@@ -1260,6 +1265,8 @@ export default function App() {
           isCorrect: pick.isCorrect
         }));
         setSavedPicks(rows);
+        setTiebreakerGuess(contestViewEntry.tiebreaker?.answer ?? '');
+        tiebreakerSavedRef.current = contestViewEntry.tiebreaker?.answer ?? '';
       }
       setIsSavedLoading(false);
       return () => {
@@ -1286,12 +1293,18 @@ export default function App() {
           if (!active) return;
           setSavedBracket(data.picks);
           setTiebreakerGuess(tiebreakerData.tiebreaker?.answer ?? '');
+          tiebreakerSavedRef.current = tiebreakerData.tiebreaker?.answer ?? '';
           return;
         }
 
-        const data = await api.getPicks(authToken, selectedContestId, selectedEntry.id);
+        const [data, tiebreakerData] = await Promise.all([
+          api.getPicks(authToken, selectedContestId, selectedEntry.id),
+          api.getEntryTiebreaker(authToken, selectedContestId, selectedEntry.id).catch(() => ({ tiebreaker: null }))
+        ]);
         if (!active) return;
         setSavedPicks(data.picks);
+        setTiebreakerGuess(tiebreakerData.tiebreaker?.answer ?? '');
+        tiebreakerSavedRef.current = tiebreakerData.tiebreaker?.answer ?? '';
       } catch (err) {
         if (!active) return;
         handleAppError(err);
@@ -1307,6 +1320,36 @@ export default function App() {
       active = false;
     };
   }, [userId, selectedContestId, selectedContest?.type, selectedEntry?.id, contestViewEntry]);
+
+  useEffect(() => {
+    if (!tiebreakerPrompt || isUefaBracketContest) return;
+    if (!selectedContestId || isViewingContestParticipantEntry) return;
+
+    const trimmed = tiebreakerGuess.trim();
+    if (!trimmed || trimmed === tiebreakerSavedRef.current) return;
+
+    const numericGuess = Number(trimmed);
+    if (!Number.isInteger(numericGuess) || numericGuess < 0) return;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const { entry } = await ensureContestEntry(selectedContestId);
+          await api.saveEntryTiebreaker(authToken, selectedContestId, entry.id, {
+            prompt: tiebreakerPrompt,
+            answer: trimmed,
+            numericGuess
+          });
+          tiebreakerSavedRef.current = trimmed;
+          setStatus('Tiebreaker saved.');
+        } catch (err) {
+          handleAppError(err);
+        }
+      })();
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [tiebreakerGuess, tiebreakerPrompt, isUefaBracketContest, selectedContestId, isViewingContestParticipantEntry]);
 
   useEffect(() => {
     if (!isStraightPickemContest || savedPicks.length === 0) return;
@@ -2700,6 +2743,14 @@ export default function App() {
                   </div>
                   {databaseHealth?.error ? <p className="error">DB: {databaseHealth.error}</p> : null}
                   {workerHealth?.lastError ? <p className="error">Worker: {workerHealth.lastError}</p> : null}
+                  {workerHealth?.lastWarnings && workerHealth.lastWarnings.length > 0 ? (
+                    <div className="adminWarningList">
+                      <p className="muted">Blocked syncs (suspicious game-count growth):</p>
+                      {workerHealth.lastWarnings.map((warning, index) => (
+                        <p key={index} className="error">{warning}</p>
+                      ))}
+                    </div>
+                  ) : null}
 
                   <h4 className="adminSubheading">Admin Actions</h4>
                   <div className="grid two">
@@ -3058,6 +3109,23 @@ export default function App() {
                         <button type="submit" className="ctaBtn">Submit Picks</button>
                       ) : null}
                     </form>
+                  ) : null}
+
+                  {!isGamesLoading && tiebreakerPrompt && !isUefaBracketContest ? (
+                    <section className="card tiebreakerCard">
+                      <h3>Tiebreaker</h3>
+                      <p className="muted">{tiebreakerPrompt}</p>
+                      <div className="row gap">
+                        <input
+                          value={tiebreakerGuess}
+                          onChange={(e) => setTiebreakerGuess(e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder="Enter your answer"
+                          inputMode="numeric"
+                          disabled={isViewingContestParticipantEntry}
+                        />
+                      </div>
+                      <p className="muted tiebreakerHint">Saves automatically as you type.</p>
+                    </section>
                   ) : null}
 
                   {!isGamesLoading && games.length > 0 && !isMarchMadnessStandardContest && !isOlympicBracketContest && !isUefaBracketContest && !isConferenceChampionsContest && !isPickemContest ? (
