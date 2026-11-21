@@ -1,4 +1,4 @@
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api';
+export const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api';
 
 export type ApiError = { error?: string; detail?: string };
 

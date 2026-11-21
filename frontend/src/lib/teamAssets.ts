@@ -1,3 +1,5 @@
+import { API_BASE } from '../api';
+
 export const NBA_TEAM_ABBR: Record<string, string> = {
   'Atlanta Hawks': 'atl',
   'Boston Celtics': 'bos',
@@ -210,17 +212,17 @@ export const NFL_TEAM_ABBR: Record<string, string> = {
 export function nflLogoUrl(teamName: string): string | null {
   const key = teamName.trim();
   const abbr = NFL_TEAM_ABBR[key] ?? NFL_TEAM_ABBR[key.toUpperCase()];
-  return abbr ? `/api/assets/logo/nfl/${abbr}` : null;
+  return abbr ? `${API_BASE}/assets/logo/nfl/${abbr}` : null;
 }
 
 export function nbaLogoUrl(teamName: string): string | null {
   const key = teamName.trim();
   const abbr = NBA_TEAM_ABBR[key] ?? NBA_TEAM_ALIAS_ABBR[key.toUpperCase()];
-  return abbr ? `/api/assets/logo/nba/${abbr}` : null;
+  return abbr ? `${API_BASE}/assets/logo/nba/${abbr}` : null;
 }
 
 export function nhlLogoUrl(teamName: string): string | null {
   const key = teamName.trim();
   const abbr = NHL_TEAM_ABBR[key] ?? NHL_TEAM_ABBR[key.toUpperCase()];
-  return abbr ? `/api/assets/logo/nhl/${abbr}` : null;
+  return abbr ? `${API_BASE}/assets/logo/nhl/${abbr}` : null;
 }
