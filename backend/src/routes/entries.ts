@@ -71,6 +71,8 @@ entriesRouter.post('/contests/:contestId/entries', requireUser, async (req: Auth
 });
 
 entriesRouter.get('/entries/me', requireUser, async (req: AuthenticatedRequest, res) => {
+  await ensureEntryTiebreakersTable();
+
   const result = await query(
     `with game_counts as (
        select contest_id, count(*)::int as game_count
@@ -90,6 +92,12 @@ entriesRouter.get('/entries/me', requireUser, async (req: AuthenticatedRequest, 
        left join bracket_picks bp on bp.entry_id = e.id
        where e.user_id = $1
        group by e.id
+     ),
+     tiebreaker_flags as (
+       select e.id as entry_id, (tb.entry_id is not null) as has_tiebreaker
+       from entries e
+       left join entry_tiebreakers tb on tb.entry_id = e.id
+       where e.user_id = $1
      )
      select e.id,
             e.contest_id as "contestId",
@@ -99,8 +107,10 @@ entriesRouter.get('/entries/me', requireUser, async (req: AuthenticatedRequest, 
             case
               when c.type in ('PICKEM_NFL', 'PICKEM_NBA', 'PICKEM_NHL')
                 then coalesce(pc.pick_count, 0) >= greatest(coalesce(gc.game_count, 0), 1)
+                     and (c.scoring_config #>> '{tiebreaker,prompt}' is null or coalesce(tf.has_tiebreaker, false))
               when c.type = 'BRACKET_NCAAM'
                 then coalesce(bc.bracket_pick_count, 0) >= greatest(coalesce(gc.game_count, 0), 1)
+                     and (c.scoring_config #>> '{tiebreaker,prompt}' is null or coalesce(tf.has_tiebreaker, false))
               else false
             end as "isComplete"
      from entries e
@@ -108,6 +118,7 @@ entriesRouter.get('/entries/me', requireUser, async (req: AuthenticatedRequest, 
      left join game_counts gc on gc.contest_id = e.contest_id
      left join pick_counts pc on pc.entry_id = e.id
      left join bracket_counts bc on bc.entry_id = e.id
+     left join tiebreaker_flags tf on tf.entry_id = e.id
      where e.user_id = $1
      order by e.submitted_at desc`,
     [req.userId]
