@@ -139,6 +139,80 @@ export const NHL_TEAM_ABBR: Record<string, string> = {
   WPG: 'wpg'
 };
 
+export const NFL_TEAM_ABBR: Record<string, string> = {
+  'Arizona Cardinals': 'ari',
+  'Atlanta Falcons': 'atl',
+  'Baltimore Ravens': 'bal',
+  'Buffalo Bills': 'buf',
+  'Carolina Panthers': 'car',
+  'Chicago Bears': 'chi',
+  'Cincinnati Bengals': 'cin',
+  'Cleveland Browns': 'cle',
+  'Dallas Cowboys': 'dal',
+  'Denver Broncos': 'den',
+  'Detroit Lions': 'det',
+  'Green Bay Packers': 'gb',
+  'Houston Texans': 'hou',
+  'Indianapolis Colts': 'ind',
+  'Jacksonville Jaguars': 'jax',
+  'Kansas City Chiefs': 'kc',
+  'Las Vegas Raiders': 'lv',
+  'Los Angeles Chargers': 'lac',
+  'Los Angeles Rams': 'lar',
+  'Miami Dolphins': 'mia',
+  'Minnesota Vikings': 'min',
+  'New England Patriots': 'ne',
+  'New Orleans Saints': 'no',
+  'New York Giants': 'nyg',
+  'New York Jets': 'nyj',
+  'Philadelphia Eagles': 'phi',
+  'Pittsburgh Steelers': 'pit',
+  'San Francisco 49ers': 'sf',
+  'Seattle Seahawks': 'sea',
+  'Tampa Bay Buccaneers': 'tb',
+  'Tennessee Titans': 'ten',
+  'Washington Commanders': 'wsh',
+  ARI: 'ari',
+  ATL: 'atl',
+  BAL: 'bal',
+  BUF: 'buf',
+  CAR: 'car',
+  CHI: 'chi',
+  CIN: 'cin',
+  CLE: 'cle',
+  DAL: 'dal',
+  DEN: 'den',
+  DET: 'det',
+  GB: 'gb',
+  HOU: 'hou',
+  IND: 'ind',
+  JAX: 'jax',
+  KC: 'kc',
+  LV: 'lv',
+  LAC: 'lac',
+  LAR: 'lar',
+  MIA: 'mia',
+  MIN: 'min',
+  NE: 'ne',
+  NO: 'no',
+  NYG: 'nyg',
+  NYJ: 'nyj',
+  PHI: 'phi',
+  PIT: 'pit',
+  SF: 'sf',
+  SEA: 'sea',
+  TB: 'tb',
+  TEN: 'ten',
+  WAS: 'wsh',
+  WSH: 'wsh'
+};
+
+export function nflLogoUrl(teamName: string): string | null {
+  const key = teamName.trim();
+  const abbr = NFL_TEAM_ABBR[key] ?? NFL_TEAM_ABBR[key.toUpperCase()];
+  return abbr ? `/api/assets/logo/nfl/${abbr}` : null;
+}
+
 export function nbaLogoUrl(teamName: string): string | null {
   const key = teamName.trim();
   const abbr = NBA_TEAM_ABBR[key] ?? NBA_TEAM_ALIAS_ABBR[key.toUpperCase()];

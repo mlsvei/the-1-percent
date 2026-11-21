@@ -34,7 +34,7 @@ import {
 } from './lib/brackets';
 import { renderBracketTeamIcon, renderUefaTeamIcon } from './lib/bracketIcons';
 import { MarchRegionView, MARCH_MADNESS_SEEDS, NCAAB_CONFERENCE_TEAMS } from './lib/marchMadness';
-import { nbaLogoUrl, nhlLogoUrl } from './lib/teamAssets';
+import { nbaLogoUrl, nhlLogoUrl, nflLogoUrl } from './lib/teamAssets';
 import { ContestSportFilter, fmtDate, fmtDateEastern, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
 import {
   leaderboardDisplayName,
@@ -422,6 +422,7 @@ export default function App() {
   }, [filteredLeaderboardContests, selectedLeaderboardContestId]);
 
   const isPickemContest = selectedContest?.type === 'PICKEM_NFL' || selectedContest?.type === 'PICKEM_NBA' || selectedContest?.type === 'PICKEM_NHL';
+  const isNflPickemContest = selectedContest?.type === 'PICKEM_NFL';
   const isStraightPickemContest = isPickemContest && selectedContest?.scoringConfig?.pickem?.useConfidence !== true;
   const tiebreakerPrompt = selectedContest?.scoringConfig?.tiebreaker?.prompt ?? null;
   const isOlympicBracketContest =
@@ -870,6 +871,11 @@ export default function App() {
     }
 
     setPickPercentagesByKey(next);
+
+    // A pick save can flip an entry's isComplete flag; re-fetch so the
+    // "Entered"/"Incomplete" badges reflect it without a manual refresh.
+    const entryData = await api.entriesMe(authToken);
+    setEntries(entryData.entries);
   }
 
   async function refreshPopularGroups(contestId: string) {
@@ -1341,6 +1347,8 @@ export default function App() {
             numericGuess
           });
           tiebreakerSavedRef.current = trimmed;
+          const entryData = await api.entriesMe(authToken);
+          setEntries(entryData.entries);
           setStatus('Tiebreaker saved.');
         } catch (err) {
           handleAppError(err);
@@ -1509,6 +1517,8 @@ export default function App() {
         answer: trimmed,
         numericGuess
       });
+      const entryData = await api.entriesMe(authToken);
+      setEntries(entryData.entries);
       setStatus('Tiebreaker saved.');
     } catch (err) {
       handleAppError(err);
@@ -3047,7 +3057,7 @@ export default function App() {
                   ) : null}
 
                   {!isGamesLoading && isPickemContest ? (
-                    <form className="pickemBoard" onSubmit={onSubmitPicks}>
+                    <form className={'pickemBoard' + (isNflPickemContest ? ' nflPickemBoard' : '')} onSubmit={onSubmitPicks}>
                       {games.map((game) => {
                         const savedRow = savedPickRowByGame.get(game.id);
                         const draft = pickDraft[game.id];
@@ -3064,6 +3074,76 @@ export default function App() {
                               ? <span className="saveCheck" aria-label="Correct">✓</span>
                               : <span className="saveMiss" aria-label="Wrong">✕</span>
                             : null;
+
+                        if (isNflPickemContest) {
+                          const statusLower = game.status.toLowerCase();
+                          const isGraded = Boolean(game.winner) || statusLower.includes('final') || statusLower.includes('complete');
+                          const isLive = !isGraded && statusLower.includes('progress');
+                          const awayWon = isGraded && game.winner === game.awayTeam;
+                          const homeWon = isGraded && game.winner === game.homeTeam;
+                          const awayLogo = nflLogoUrl(game.awayTeam);
+                          const homeLogo = nflLogoUrl(game.homeTeam);
+                          const bannerLabel = isGraded ? 'FINAL' : isLive ? 'LIVE' : `${fmtDateEastern(game.startTime)} ET`;
+                          const bannerClass = isGraded ? 'final' : isLive ? 'live' : 'upcoming';
+
+                          return (
+                            <article key={game.id} className="nflPickCard">
+                              <div className={'nflPickBanner ' + bannerClass}>{bannerLabel}</div>
+                              <div className="nflPickTeams">
+                                <button
+                                  type="button"
+                                  className={
+                                    'nflPickTeamTile ' +
+                                    (selectedWinner === game.awayTeam ? 'selected ' : '') +
+                                    (isGraded ? (awayWon ? 'winner' : 'loser') : '')
+                                  }
+                                  onClick={() => isStraightPickemContest ? void onSelectStraightPickemTeam(game, game.awayTeam) : onDraftPickemTeam(game.id, game.awayTeam)}
+                                  disabled={isSavedLoading || isViewingContestParticipantEntry}
+                                >
+                                  {awayLogo ? <img className="nflPickTeamLogo" src={awayLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                  <span className="nflPickTeamName">{game.awayTeam}</span>
+                                  <span className="pickPct">{pickPercentFor(game.id, game.awayTeam)}</span>
+                                  {awayResult}
+                                </button>
+                                <span className="nflPickAt">@</span>
+                                <button
+                                  type="button"
+                                  className={
+                                    'nflPickTeamTile ' +
+                                    (selectedWinner === game.homeTeam ? 'selected ' : '') +
+                                    (isGraded ? (homeWon ? 'winner' : 'loser') : '')
+                                  }
+                                  onClick={() => isStraightPickemContest ? void onSelectStraightPickemTeam(game, game.homeTeam) : onDraftPickemTeam(game.id, game.homeTeam)}
+                                  disabled={isSavedLoading || isViewingContestParticipantEntry}
+                                >
+                                  {homeLogo ? <img className="nflPickTeamLogo" src={homeLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                  <span className="nflPickTeamName">{game.homeTeam}</span>
+                                  <span className="pickPct">{pickPercentFor(game.id, game.homeTeam)}</span>
+                                  {homeResult}
+                                </button>
+                              </div>
+                              {isGraded && game.awayScore !== null && game.homeScore !== null ? (
+                                <div className="nflPickScoreBar">
+                                  <span className={awayWon ? 'nflScoreWin' : 'nflScoreLose'}>{game.awayScore}</span>
+                                  <span className="nflScoreSep">-</span>
+                                  <span className={homeWon ? 'nflScoreWin' : 'nflScoreLose'}>{game.homeScore}</span>
+                                </div>
+                              ) : null}
+                              {!isStraightPickemContest ? (
+                                <label className="confidenceInputRow">
+                                  <span className="muted">Confidence points</span>
+                                  <input
+                                    value={draft?.confidencePoints ?? ''}
+                                    onChange={(e) => onDraftConfidence(game.id, e.target.value)}
+                                    inputMode="numeric"
+                                    placeholder="e.g. 10"
+                                    disabled={isViewingContestParticipantEntry}
+                                  />
+                                </label>
+                              ) : null}
+                            </article>
+                          );
+                        }
 
                         return (
                           <article key={game.id} className="pickRow pickemGameCard">

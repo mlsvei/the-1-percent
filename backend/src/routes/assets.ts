@@ -2,9 +2,10 @@ import { Router } from 'express';
 
 export const assetsRouter = Router();
 
-const LEAGUE_MAP: Record<string, 'nba' | 'nhl'> = {
+const LEAGUE_MAP: Record<string, 'nba' | 'nhl' | 'nfl'> = {
   nba: 'nba',
-  nhl: 'nhl'
+  nhl: 'nhl',
+  nfl: 'nfl'
 };
 
 assetsRouter.get('/assets/logo/:league/:abbr', async (req, res) => {
