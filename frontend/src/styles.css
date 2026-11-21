@@ -1532,9 +1532,9 @@ td {
 
 
 .entryBadge.incomplete {
-  color: var(--gold-bright);
-  background: rgba(233, 192, 103, 0.16);
-  border: 1px solid rgba(233, 192, 103, 0.4);
+  color: #fff;
+  background: #d62828;
+  border: 1px solid #ff5c5c;
 }
 
 .leaderboardNameCell {
