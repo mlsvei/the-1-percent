@@ -393,8 +393,10 @@ async function fetchEspnNbaGamesByDate(date: string): Promise<NbaGameItem[]> {
     const home = competitors.find((team) => String(team.homeAway ?? '').toLowerCase() === 'home') ?? {};
     const away = competitors.find((team) => String(team.homeAway ?? '').toLowerCase() === 'away') ?? {};
 
-    const homeName = pickString(asRecord(home.team).displayName, asRecord(home.team).name, home.displayName, home.name) ?? 'Unknown Home';
-    const awayName = pickString(asRecord(away.team).displayName, asRecord(away.team).name, away.displayName, away.name) ?? 'Unknown Away';
+    // NBA games are stored internally by abbreviation (e.g. "CHA"), not full team name,
+    // so this must match that convention or upserts will fail to find the existing row.
+    const homeName = pickString(asRecord(home.team).abbreviation, asRecord(home.team).displayName, home.displayName) ?? 'Unknown Home';
+    const awayName = pickString(asRecord(away.team).abbreviation, asRecord(away.team).displayName, away.displayName) ?? 'Unknown Away';
 
     const homeScore = Number.isFinite(Number(home.score)) ? Number(home.score) : undefined;
     const awayScore = Number.isFinite(Number(away.score)) ? Number(away.score) : undefined;
@@ -417,7 +419,10 @@ async function fetchEspnNbaGamesByDate(date: string): Promise<NbaGameItem[]> {
 
 async function fetchEspnCbbGamesByDate(date: string): Promise<CbbGameItem[]> {
   const yyyymmdd = date.replaceAll('-', '');
-  const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates=${yyyymmdd}`;
+  // groups=50 asks ESPN for all Division I games, not just the small "featured" slate
+  // its scoreboard shows by default - needed since conference tournaments span far
+  // more schools than the handful ESPN highlights.
+  const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates=${yyyymmdd}&groups=50&limit=400`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -435,8 +440,11 @@ async function fetchEspnCbbGamesByDate(date: string): Promise<CbbGameItem[]> {
     const home = competitors.find((team) => String(team.homeAway ?? '').toLowerCase() === 'home') ?? {};
     const away = competitors.find((team) => String(team.homeAway ?? '').toLowerCase() === 'away') ?? {};
 
-    const homeName = pickString(asRecord(home.team).displayName, asRecord(home.team).name, home.displayName, home.name) ?? 'Unknown Home';
-    const awayName = pickString(asRecord(away.team).displayName, asRecord(away.team).name, away.displayName, away.name) ?? 'Unknown Away';
+    // College team names are matched against bare school names (e.g. "Butler"), so prefer
+    // ESPN's shortDisplayName/location over displayName, which includes the mascot
+    // ("Butler Bulldogs") and would fail that match.
+    const homeName = pickString(asRecord(home.team).shortDisplayName, asRecord(home.team).location, asRecord(home.team).displayName) ?? 'Unknown Home';
+    const awayName = pickString(asRecord(away.team).shortDisplayName, asRecord(away.team).location, asRecord(away.team).displayName) ?? 'Unknown Away';
 
     const homeScore = Number.isFinite(Number(home.score)) ? Number(home.score) : undefined;
     const awayScore = Number.isFinite(Number(away.score)) ? Number(away.score) : undefined;
@@ -458,12 +466,23 @@ async function fetchEspnCbbGamesByDate(date: string): Promise<CbbGameItem[]> {
 }
 
 export async function fetchNbaGamesByDate(date: string): Promise<NbaGameItem[]> {
-  if (config.sportsDataIo.apiKey) {
-    const url = withTemplate(config.sportsDataIo.nbaGamesByDateUrlTemplate, { date });
-    return getJsonArray<NbaGameItem>(url);
+  try {
+    const espn = await fetchEspnNbaGamesByDate(date);
+    if (espn.length > 0) return espn;
+  } catch (error) {
+    console.warn('[espn] NBA feed failed, trying SportsData fallback:', error);
   }
 
-  return fetchEspnNbaGamesByDate(date);
+  if (config.sportsDataIo.apiKey) {
+    try {
+      const url = withTemplate(config.sportsDataIo.nbaGamesByDateUrlTemplate, { date });
+      return await getJsonArray<NbaGameItem>(url);
+    } catch (error) {
+      console.warn('[sportsdataio] NBA feed failed:', error);
+    }
+  }
+
+  return [];
 }
 
 export async function fetchCbbGamesByDate(date: string): Promise<CbbGameItem[]> {
@@ -476,8 +495,12 @@ export async function fetchCbbGamesByDate(date: string): Promise<CbbGameItem[]> 
   }
 
   if (config.sportsDataIo.apiKey) {
-    const url = withTemplate(config.sportsDataIo.cbbGamesByDateUrlTemplate, { date });
-    return getJsonArray<CbbGameItem>(url);
+    try {
+      const url = withTemplate(config.sportsDataIo.cbbGamesByDateUrlTemplate, { date });
+      return await getJsonArray<CbbGameItem>(url);
+    } catch (error) {
+      console.warn('[sportsdataio] CBB feed failed:', error);
+    }
   }
 
   return [];
@@ -534,6 +557,13 @@ async function fetchEspnSoccerGamesByDate(date: string): Promise<EspnSoccerGameI
 }
 
 export async function fetchSoccerGamesByDate(date: string): Promise<SoccerGameItem[]> {
+  try {
+    const espn = await fetchEspnSoccerGamesByDate(date);
+    if (espn.length > 0) return espn;
+  } catch (error) {
+    console.warn('[espn] soccer feed failed, trying SportsData fallback:', error);
+  }
+
   if (config.sportsDataIo.apiKey) {
     try {
       // Use CompetitionDetails/UCL because this key has access to that endpoint.
@@ -561,11 +591,11 @@ export async function fetchSoccerGamesByDate(date: string): Promise<SoccerGameIt
 
       if (filtered.length > 0) return filtered;
     } catch (error) {
-      console.warn('[sportsdataio] soccer feed failed, trying ESPN fallback:', error);
+      console.warn('[sportsdataio] soccer feed failed:', error);
     }
   }
 
-  return fetchEspnSoccerGamesByDate(date);
+  return [];
 }
 
 type NhlOfficialNormalized = {
@@ -625,18 +655,39 @@ async function fetchNhlOfficialByDate(date: string): Promise<NhlOfficialNormaliz
 }
 
 export async function fetchNhlGamesByDate(date: string): Promise<NhlGameItem[]> {
-  const url = withTemplate(config.sportsDataIo.nhlGamesByDateUrlTemplate, { date });
-  const primary = await getJsonArray<NhlGameItem>(url);
-
-  let officialByMatch = new Map<string, NhlOfficialNormalized>();
+  let official: NhlOfficialNormalized[] = [];
   try {
-    const official = await fetchNhlOfficialByDate(date);
-    officialByMatch = new Map(
-      official.map((game) => [`${game.awayTeam}@${game.homeTeam}`, game])
-    );
+    official = await fetchNhlOfficialByDate(date);
   } catch (error) {
-    console.warn('[sportsdataio] NHL official fallback unavailable:', error);
+    console.warn('[nhl] official feed unavailable:', error);
   }
+
+  let primary: NhlGameItem[] = [];
+  if (config.sportsDataIo.apiKey) {
+    try {
+      const url = withTemplate(config.sportsDataIo.nhlGamesByDateUrlTemplate, { date });
+      primary = await getJsonArray<NhlGameItem>(url);
+    } catch (error) {
+      console.warn('[sportsdataio] NHL feed unavailable:', error);
+    }
+  }
+
+  if (primary.length === 0) {
+    // SportsDataIO unavailable (no key, quota, or empty feed) - build entirely from the
+    // free official NHL feed instead of failing the sync.
+    return official.map((game) => ({
+      GameID: `${game.awayTeam}-${game.homeTeam}-${date}`,
+      HomeTeam: game.homeTeam,
+      AwayTeam: game.awayTeam,
+      DateTimeUTC: game.startTimeUtc ?? undefined,
+      Status: game.status,
+      HomeTeamScore: game.homeScore ?? undefined,
+      AwayTeamScore: game.awayScore ?? undefined,
+      WinningTeam: game.winner ?? undefined
+    })) as unknown as NhlGameItem[];
+  }
+
+  const officialByMatch = new Map(official.map((game) => [`${game.awayTeam}@${game.homeTeam}`, game]));
 
   return primary.map((item) => {
     const awayTeam = canonicalizeNhlTeamCode(String(item.AwayTeam ?? ''));
