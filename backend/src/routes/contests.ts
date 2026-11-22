@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db.js';
 import { gradeContest } from '../services/grading.js';
+import { ensureGamesWeekColumn } from '../services/game-ingest.js';
 import { refreshContestStatuses } from '../services/contest-status.js';
 import { buildUpcomingSpotMatches } from '../services/cbb-spot-matcher.js';
 import { requireContestCreator } from '../middleware/require-contest-creator.js';
@@ -39,7 +40,8 @@ const adminGameSchema = z.object({
   status: z.string().min(1).default('Scheduled'),
   homeScore: z.number().int().nullable().optional(),
   awayScore: z.number().int().nullable().optional(),
-  winner: z.string().nullable().optional()
+  winner: z.string().nullable().optional(),
+  week: z.number().int().nullable().optional()
 });
 
 const bulkGamesSchema = z.object({
@@ -202,10 +204,12 @@ contestsRouter.post('/contests/:contestId/games/bulk', requireUser, requireConte
     return;
   }
 
+  await ensureGamesWeekColumn();
+
   for (const game of parsed.data.games) {
     await query(
-      `insert into games (id, contest_id, provider_game_id, sport, home_team, away_team, start_time, status, home_score, away_score, winner)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `insert into games (id, contest_id, provider_game_id, sport, home_team, away_team, start_time, status, home_score, away_score, winner, week)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        on conflict (contest_id, provider_game_id)
        do update set
          sport = excluded.sport,
@@ -215,7 +219,8 @@ contestsRouter.post('/contests/:contestId/games/bulk', requireUser, requireConte
          status = excluded.status,
          home_score = excluded.home_score,
          away_score = excluded.away_score,
-         winner = excluded.winner`,
+         winner = excluded.winner,
+         week = coalesce(excluded.week, games.week)`,
       [
         randomUUID(),
         req.params.contestId,
@@ -227,7 +232,8 @@ contestsRouter.post('/contests/:contestId/games/bulk', requireUser, requireConte
         game.status,
         game.homeScore ?? null,
         game.awayScore ?? null,
-        game.winner ?? null
+        game.winner ?? null,
+        game.week ?? null
       ]
     );
   }
@@ -411,9 +417,10 @@ contestsRouter.get('/contests', async (_req, res) => {
 });
 
 contestsRouter.get('/contests/:contestId/games', async (req, res) => {
+  await ensureGamesWeekColumn();
   const result = await query(
     `select id, provider_game_id as "providerGameId", sport, home_team as "homeTeam", away_team as "awayTeam",
-            start_time as "startTime", status, home_score as "homeScore", away_score as "awayScore", winner
+            start_time as "startTime", status, home_score as "homeScore", away_score as "awayScore", winner, week
      from games
      where contest_id = $1
      order by start_time asc`,
@@ -513,82 +520,6 @@ contestsRouter.get('/contests/:contestId/pick-percentages', async (req, res) => 
   });
 
   res.json({ contestId: req.params.contestId, type: contest.type, rows: withPercentages });
-});
-
-contestsRouter.get('/contests/:contestId/season-standings', requireUser, async (req: AuthenticatedRequest, res) => {
-  const contestResult = await query<{ id: string; type: string; season: number | null }>(
-    'select id, type, season from contests where id = $1',
-    [req.params.contestId]
-  );
-  const contest = contestResult.rows[0];
-
-  if (!contest) {
-    res.status(404).json({ error: 'Contest not found' });
-    return;
-  }
-
-  if (contest.season == null) {
-    res.json({ season: null, wins: 0, losses: 0, points: 0, rank: null, percentile: null, totalEntrants: 0 });
-    return;
-  }
-
-  const siblingResult = await query<{ id: string }>(
-    'select id from contests where type = $1 and season = $2',
-    [contest.type, contest.season]
-  );
-  const siblingIds = siblingResult.rows.map((row) => row.id);
-
-  const totalsResult = await query<{ userId: string; totalPoints: number }>(
-    `select e.user_id as "userId", sum(e.total_points)::int as "totalPoints"
-     from entries e
-     where e.contest_id = any($1)
-     group by e.user_id
-     order by sum(e.total_points) desc`,
-    [siblingIds]
-  );
-
-  const rows = totalsResult.rows;
-  const totalEntrants = rows.length;
-  let rank: number | null = null;
-  let points = 0;
-
-  for (let i = 0; i < rows.length; i += 1) {
-    if (rows[i].userId === req.userId) {
-      points = rows[i].totalPoints;
-      let r = 1;
-      for (let j = 1; j <= i; j += 1) {
-        if (rows[j].totalPoints < rows[j - 1].totalPoints) r = j + 1;
-      }
-      rank = r;
-      break;
-    }
-  }
-
-  const percentile =
-    rank === null
-      ? null
-      : totalEntrants > 1
-        ? Math.max(0, Math.min(100, ((totalEntrants - rank) / (totalEntrants - 1)) * 100))
-        : 100;
-
-  const pickResult = await query<{ wins: number; losses: number }>(
-    `select count(*) filter (where p.is_correct = true)::int as wins,
-            count(*) filter (where p.is_correct = false)::int as losses
-     from picks p
-     join entries e on e.id = p.entry_id
-     where e.contest_id = any($1) and e.user_id = $2`,
-    [siblingIds, req.userId]
-  );
-
-  res.json({
-    season: contest.season,
-    wins: pickResult.rows[0]?.wins ?? 0,
-    losses: pickResult.rows[0]?.losses ?? 0,
-    points,
-    rank,
-    percentile,
-    totalEntrants
-  });
 });
 
 contestsRouter.get('/leaderboards/top-one', requireUser, async (_req, res) => {

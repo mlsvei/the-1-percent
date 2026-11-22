@@ -13,8 +13,7 @@ import {
   ParticipantContestEntry,
   ParticipantEntryBracketPick,
   ParticipantEntryPickemPick,
-  UserStatsProfile,
-  SeasonStandings
+  UserStatsProfile
 } from './api';
 import {
   OlympicBracketTeam,
@@ -36,7 +35,7 @@ import {
 import { renderBracketTeamIcon, renderUefaTeamIcon } from './lib/bracketIcons';
 import { MarchRegionView, MARCH_MADNESS_SEEDS, NCAAB_CONFERENCE_TEAMS } from './lib/marchMadness';
 import { nbaLogoUrl, nhlLogoUrl, nflLogoUrl } from './lib/teamAssets';
-import { ContestSportFilter, fmtDate, fmtDateEastern, fmtDateRange, weekLabelFromContestName, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
+import { ContestSportFilter, fmtDate, fmtDateEastern, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
 import {
   leaderboardDisplayName,
   rankFromPoints,
@@ -311,7 +310,7 @@ export default function App() {
   const [isGroupLeaderboardLoading, setIsGroupLeaderboardLoading] = useState(false);
   const [contestLeaderboards, setContestLeaderboards] = useState<Record<string, LeaderboardRow[]>>({});
   const [isContestLeaderboardsLoading, setIsContestLeaderboardsLoading] = useState(false);
-  const [seasonStandingsByContest, setSeasonStandingsByContest] = useState<Record<string, SeasonStandings>>({});
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [topOneAggregateRows, setTopOneAggregateRows] = useState<TopOneAggregateRow[]>([]);
   const [isTopOneAggregateLoading, setIsTopOneAggregateLoading] = useState(false);
   const [contestSportFilter, setContestSportFilter] = useState<ContestSportFilter>('ALL');
@@ -425,16 +424,31 @@ export default function App() {
 
   const isPickemContest = selectedContest?.type === 'PICKEM_NFL' || selectedContest?.type === 'PICKEM_NBA' || selectedContest?.type === 'PICKEM_NHL';
   const isNflPickemContest = selectedContest?.type === 'PICKEM_NFL';
-  const seasonWeeks = useMemo(() => {
-    if (!isNflPickemContest || !selectedContest) return [];
-    return contests
-      .filter((contest) => contest.type === selectedContest.type && contest.season === selectedContest.season)
-      .slice()
-      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-  }, [contests, isNflPickemContest, selectedContest]);
-  const seasonStandings = selectedContestId ? seasonStandingsByContest[selectedContestId] ?? null : null;
+  const contestWeeks = useMemo(() => {
+    if (!isNflPickemContest) return [];
+    const weeks = new Set<number>();
+    for (const game of games) {
+      if (game.week != null) weeks.add(game.week);
+    }
+    return Array.from(weeks).sort((a, b) => a - b);
+  }, [isNflPickemContest, games]);
+  const effectiveWeek = useMemo(() => {
+    if (contestWeeks.length === 0) return null;
+    const incompleteWeeks = games
+      .filter((g) => g.week != null && g.winner == null && !/final|complete/i.test(g.status))
+      .map((g) => g.week as number);
+    if (incompleteWeeks.length > 0) return Math.min(...incompleteWeeks);
+    return Math.max(...contestWeeks);
+  }, [contestWeeks, games]);
+  const activeWeek = selectedWeek ?? effectiveWeek;
+  const weekGames = useMemo(() => {
+    if (!isNflPickemContest || activeWeek == null) return games;
+    return games.filter((g) => g.week == null || g.week === activeWeek);
+  }, [isNflPickemContest, games, activeWeek]);
   const isStraightPickemContest = isPickemContest && selectedContest?.scoringConfig?.pickem?.useConfidence !== true;
-  const tiebreakerPrompt = selectedContest?.scoringConfig?.tiebreaker?.prompt ?? null;
+  const tiebreakerPrompt = isNflPickemContest
+    ? (selectedContest?.scoringConfig?.tiebreakers?.[String(activeWeek ?? 0)] ?? null)
+    : (selectedContest?.scoringConfig?.tiebreaker?.prompt ?? null);
   const isOlympicBracketContest =
     selectedContest?.type === 'BRACKET_NCAAM' &&
     ((selectedContest.name.toLowerCase().includes('olympic') && selectedContest.name.toLowerCase().includes('hockey')) ||
@@ -452,18 +466,32 @@ export default function App() {
   const savedPickRowByGame = useMemo(() => new Map(savedPicks.map((pick) => [pick.gameId, pick])), [savedPicks]);
   const currentWeekPicksMade = useMemo(() => {
     if (!isNflPickemContest) return { made: 0, total: 0 };
-    return { made: savedPickRowByGame.size, total: games.length };
-  }, [isNflPickemContest, savedPickRowByGame, games]);
+    const weekGameIds = new Set(weekGames.map((g) => g.id));
+    const made = savedPicks.filter((p) => weekGameIds.has(p.gameId)).length;
+    return { made, total: weekGames.length };
+  }, [isNflPickemContest, savedPicks, weekGames]);
   const currentWeekRecord = useMemo(() => {
     if (!isNflPickemContest) return { wins: 0, losses: 0 };
+    const weekGameIds = new Set(weekGames.map((g) => g.id));
     let wins = 0;
     let losses = 0;
-    for (const pick of savedPickRowByGame.values()) {
+    for (const pick of savedPicks) {
+      if (!weekGameIds.has(pick.gameId)) continue;
       if (pick.isCorrect === true) wins += 1;
       else if (pick.isCorrect === false) losses += 1;
     }
     return { wins, losses };
-  }, [isNflPickemContest, savedPickRowByGame]);
+  }, [isNflPickemContest, savedPicks, weekGames]);
+  const seasonRecord = useMemo(() => {
+    if (!isNflPickemContest) return { wins: 0, losses: 0 };
+    let wins = 0;
+    let losses = 0;
+    for (const pick of savedPicks) {
+      if (pick.isCorrect === true) wins += 1;
+      else if (pick.isCorrect === false) losses += 1;
+    }
+    return { wins, losses };
+  }, [isNflPickemContest, savedPicks]);
   const savedBracketBySlot = useMemo(() => new Map(savedBracket.map((pick) => [pick.gameSlot, pick.pickedTeam])), [savedBracket]);
   const savedBracketRowBySlot = useMemo(() => new Map(savedBracket.map((pick) => [pick.gameSlot, pick])), [savedBracket]);
   const olympicGames = useMemo(() => resolveOlympicBracketGames(savedBracketBySlot), [savedBracketBySlot]);
@@ -1065,29 +1093,8 @@ export default function App() {
   }, [userId, activeTopPage, selectedContestId]);
 
   useEffect(() => {
-    let active = true;
-
-    if (!authToken || activeTopPage !== 'contest' || !selectedContestId || !isNflPickemContest) {
-      return () => {
-        active = false;
-      };
-    }
-
-    api
-      .contestSeasonStandings(authToken, selectedContestId)
-      .then((data) => {
-        if (!active) return;
-        setSeasonStandingsByContest((prev) => ({ ...prev, [selectedContestId]: data }));
-      })
-      .catch((err: Error) => {
-        if (!active) return;
-        handleAppError(err);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [userId, activeTopPage, selectedContestId, isNflPickemContest]);
+    setSelectedWeek(null);
+  }, [selectedContestId]);
 
   useEffect(() => {
     let active = true;
@@ -1301,7 +1308,11 @@ export default function App() {
       };
     }
 
+    const tiebreakerWeek = isNflPickemContest ? (activeWeek ?? 0) : 0;
+
     if (contestViewEntry && contestViewEntry.contestId === selectedContestId) {
+      const matchingTiebreaker =
+        contestViewEntry.tiebreakers?.find((tb) => (tb.week ?? 0) === tiebreakerWeek) ?? contestViewEntry.tiebreaker;
       if (selectedContest.type === 'BRACKET_NCAAM') {
         const rows = (contestViewEntry.picks as ParticipantEntryBracketPick[]).map((pick) => ({
           gameSlot: pick.gameSlot,
@@ -1310,8 +1321,8 @@ export default function App() {
           isCorrect: pick.isCorrect
         }));
         setSavedBracket(rows);
-        setTiebreakerGuess(contestViewEntry.tiebreaker?.answer ?? '');
-        tiebreakerSavedRef.current = contestViewEntry.tiebreaker?.answer ?? '';
+        setTiebreakerGuess(matchingTiebreaker?.answer ?? '');
+        tiebreakerSavedRef.current = matchingTiebreaker?.answer ?? '';
       } else {
         const rows = (contestViewEntry.picks as ParticipantEntryPickemPick[]).map((pick) => ({
           gameId: pick.gameId,
@@ -1320,8 +1331,8 @@ export default function App() {
           isCorrect: pick.isCorrect
         }));
         setSavedPicks(rows);
-        setTiebreakerGuess(contestViewEntry.tiebreaker?.answer ?? '');
-        tiebreakerSavedRef.current = contestViewEntry.tiebreaker?.answer ?? '';
+        setTiebreakerGuess(matchingTiebreaker?.answer ?? '');
+        tiebreakerSavedRef.current = matchingTiebreaker?.answer ?? '';
       }
       setIsSavedLoading(false);
       return () => {
@@ -1343,7 +1354,7 @@ export default function App() {
         if (selectedContest.type === 'BRACKET_NCAAM') {
           const [data, tiebreakerData] = await Promise.all([
             api.getBracket(authToken, selectedContestId, selectedEntry.id),
-            api.getEntryTiebreaker(authToken, selectedContestId, selectedEntry.id).catch(() => ({ tiebreaker: null }))
+            api.getEntryTiebreaker(authToken, selectedContestId, selectedEntry.id, tiebreakerWeek).catch(() => ({ tiebreaker: null }))
           ]);
           if (!active) return;
           setSavedBracket(data.picks);
@@ -1354,7 +1365,7 @@ export default function App() {
 
         const [data, tiebreakerData] = await Promise.all([
           api.getPicks(authToken, selectedContestId, selectedEntry.id),
-          api.getEntryTiebreaker(authToken, selectedContestId, selectedEntry.id).catch(() => ({ tiebreaker: null }))
+          api.getEntryTiebreaker(authToken, selectedContestId, selectedEntry.id, tiebreakerWeek).catch(() => ({ tiebreaker: null }))
         ]);
         if (!active) return;
         setSavedPicks(data.picks);
@@ -1374,7 +1385,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [userId, selectedContestId, selectedContest?.type, selectedEntry?.id, contestViewEntry]);
+  }, [userId, selectedContestId, selectedContest?.type, selectedEntry?.id, contestViewEntry, isNflPickemContest, activeWeek]);
 
   useEffect(() => {
     if (!tiebreakerPrompt || isUefaBracketContest) return;
@@ -1391,6 +1402,7 @@ export default function App() {
         try {
           const { entry } = await ensureContestEntry(selectedContestId);
           await api.saveEntryTiebreaker(authToken, selectedContestId, entry.id, {
+            week: isNflPickemContest ? (activeWeek ?? 0) : 0,
             prompt: tiebreakerPrompt,
             answer: trimmed,
             numericGuess
@@ -1406,7 +1418,7 @@ export default function App() {
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [tiebreakerGuess, tiebreakerPrompt, isUefaBracketContest, selectedContestId, isViewingContestParticipantEntry]);
+  }, [tiebreakerGuess, tiebreakerPrompt, isUefaBracketContest, selectedContestId, isViewingContestParticipantEntry, isNflPickemContest, activeWeek]);
 
   useEffect(() => {
     if (!isStraightPickemContest || savedPicks.length === 0) return;
@@ -2754,28 +2766,28 @@ export default function App() {
                         <div className="entryStatsBar seasonStatsBar">
                           <div className="entryStat">
                             <span className="entryStatLabel">W-L</span>
-                            <span className="entryStatValue">{seasonStandings ? `${seasonStandings.wins}-${seasonStandings.losses}` : '-'}</span>
+                            <span className="entryStatValue">{seasonRecord.wins}-{seasonRecord.losses}</span>
                           </div>
                           <span className="entryStatDivider" aria-hidden="true" />
                           <div className="entryStat">
                             <span className="entryStatLabel">Rank</span>
-                            <span className="entryStatValue">{seasonStandings?.rank ?? '-'}</span>
+                            <span className="entryStatValue">{displayedEntryRank ?? '-'}</span>
                           </div>
                           <span className="entryStatDivider" aria-hidden="true" />
                           <div className="entryStat">
                             <span className="entryStatLabel">Pct</span>
-                            <span className="entryStatValue">{seasonStandings?.percentile != null ? `${seasonStandings.percentile.toFixed(1)}%` : '-'}</span>
+                            <span className="entryStatValue">{displayedEntryPercentile !== null ? `${displayedEntryPercentile.toFixed(1)}%` : '-'}</span>
                           </div>
                           <span className="entryStatDivider" aria-hidden="true" />
                           <div className="entryStat">
                             <span className="entryStatLabel">Points</span>
-                            <span className="entryStatValue">{seasonStandings?.points ?? 0}</span>
+                            <span className="entryStatValue">{displayedEntryPoints}</span>
                           </div>
                         </div>
 
                         <div className="weekProgressRow">
                           <span className="muted">
-                            {weekLabelFromContestName(selectedContest.name) ?? selectedContest.name}
+                            {activeWeek != null ? `Week ${activeWeek}` : selectedContest.name}
                             {currentWeekPicksMade.total > 0 ? `: ${currentWeekRecord.wins}-${currentWeekRecord.losses}` : ''}
                           </span>
                           {currentWeekPicksMade.total > 0 ? (
@@ -2791,19 +2803,16 @@ export default function App() {
                           </div>
                         ) : null}
 
-                        {seasonWeeks.length > 1 ? (
+                        {contestWeeks.length > 1 ? (
                           <div className="weekTabRow">
-                            {seasonWeeks.map((week) => (
+                            {contestWeeks.map((week) => (
                               <button
-                                key={week.id}
+                                key={week}
                                 type="button"
-                                className={'weekTabBtn ' + (week.id === selectedContestId ? 'active' : '')}
-                                onClick={() => openContestPage(week.id)}
+                                className={'weekTabBtn ' + (week === activeWeek ? 'active' : '')}
+                                onClick={() => setSelectedWeek(week)}
                               >
-                                <span>{weekLabelFromContestName(week.name) ?? week.name}</span>
-                                {week.scoringConfig?.nfl?.fromDate && week.scoringConfig?.nfl?.toDate ? (
-                                  <span className="weekTabDate">{fmtDateRange(week.scoringConfig.nfl.fromDate, week.scoringConfig.nfl.toDate)}</span>
-                                ) : null}
+                                <span>Week {week}</span>
                               </button>
                             ))}
                           </div>
@@ -3175,7 +3184,7 @@ export default function App() {
 
                   {!isGamesLoading && isPickemContest ? (
                     <form className={'pickemBoard' + (isNflPickemContest ? ' nflPickemBoard' : '')} onSubmit={onSubmitPicks}>
-                      {games.map((game) => {
+                      {(isNflPickemContest ? weekGames : games).map((game) => {
                         const savedRow = savedPickRowByGame.get(game.id);
                         const draft = pickDraft[game.id];
                         const selectedWinner = draft?.pickedWinner || savedRow?.pickedWinner || '';

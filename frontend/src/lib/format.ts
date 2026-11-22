@@ -40,20 +40,6 @@ export function countdownWithin24h(iso: string | undefined, nowMs: number): stri
   return 'in ' + hours + 'h ' + minutes + 'm';
 }
 
-export function fmtDateRange(fromIso: string, toIso: string): string {
-  const from = new Date(`${fromIso}T00:00:00`);
-  const to = new Date(`${toIso}T00:00:00`);
-  const monthFmt = new Intl.DateTimeFormat('en-US', { month: 'short' });
-  const fromLabel = `${monthFmt.format(from)} ${from.getDate()}`;
-  const toLabel = monthFmt.format(to) === monthFmt.format(from) ? `${to.getDate()}` : `${monthFmt.format(to)} ${to.getDate()}`;
-  return `${fromLabel} - ${toLabel}`;
-}
-
-export function weekLabelFromContestName(name: string): string | null {
-  const match = name.match(/week\s*(\d+)/i);
-  return match ? `Week ${match[1]}` : null;
-}
-
 export function contestTypeLabel(contest: Pick<Contest, 'type' | 'name'>): string {
   if (contest.type === 'PICKEM_NFL') return "NFL Pick'em";
   if (contest.type === 'PICKEM_NBA') return "NBA Pick'em";

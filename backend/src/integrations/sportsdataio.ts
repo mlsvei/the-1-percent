@@ -11,6 +11,7 @@ type NflScheduleItem = {
   HomeScore?: number;
   AwayScore?: number;
   WinningTeam?: string;
+  Week?: number;
 } & AnyRecord;
 
 type NbaGameItem = {
@@ -632,6 +633,7 @@ export type NormalizedGame = {
   homeScore: number | null;
   awayScore: number | null;
   winner: string | null;
+  week: number | null;
 };
 
 function normalizeCommonGame(item: AnyRecord): {
@@ -643,6 +645,7 @@ function normalizeCommonGame(item: AnyRecord): {
   homeScore: number | null;
   awayScore: number | null;
   winner: string | null;
+  week: number | null;
 } {
   const { homeTeam, awayTeam } = extractTeams(item);
   const { homeScore, awayScore } = extractScores(item);
@@ -665,7 +668,8 @@ function normalizeCommonGame(item: AnyRecord): {
     status: extractStatus(item),
     homeScore,
     awayScore,
-    winner
+    winner,
+    week: null
   };
 }
 
@@ -677,7 +681,9 @@ export function normalizeNflSchedule(item: NflScheduleItem): NormalizedGame {
   if (winner) {
     winner = canonicalizeNflTeamName(winner);
   }
-  return { ...normalized, sport: 'NFL', homeTeam, awayTeam, winner };
+  const rawWeek = (item as NflScheduleItem).Week;
+  const week = typeof rawWeek === 'number' ? rawWeek : typeof rawWeek === 'string' ? Number(rawWeek) || null : null;
+  return { ...normalized, sport: 'NFL', homeTeam, awayTeam, winner, week };
 }
 
 export function normalizeNbaGame(item: NbaGameItem): NormalizedGame {

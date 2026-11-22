@@ -373,7 +373,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
                status = $6,
                home_score = $7,
                away_score = $8,
-               winner = $9
+               winner = $9,
+               week = coalesce($10, week)
            where id = $1`,
           [
             existingByMatchup.rows[0].id,
@@ -384,7 +385,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
             game.status,
             game.homeScore,
             game.awayScore,
-            winner
+            winner,
+            game.week
           ]
         );
         changedGameIds.push(game.providerGameId);
@@ -392,8 +394,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
       }
 
       await client.query(
-        `insert into games (id, contest_id, provider_game_id, sport, home_team, away_team, start_time, status, home_score, away_score, winner)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `insert into games (id, contest_id, provider_game_id, sport, home_team, away_team, start_time, status, home_score, away_score, winner, week)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          on conflict (contest_id, provider_game_id)
          do update set
            sport = excluded.sport,
@@ -403,7 +405,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
            status = excluded.status,
            home_score = excluded.home_score,
            away_score = excluded.away_score,
-           winner = excluded.winner`,
+           winner = excluded.winner,
+           week = coalesce(excluded.week, games.week)`,
         [
           randomUUID(),
           contestId,
@@ -415,7 +418,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
           game.status,
           game.homeScore,
           game.awayScore,
-          winner
+          winner,
+          game.week
         ]
       );
       changedGameIds.push(game.providerGameId);
@@ -641,12 +645,17 @@ async function syncUefaBracketContest(contest: ContestRow): Promise<{ syncedGame
   return { syncedGames: updated, changedGameIds: [...changedGameIds] };
 }
 
+export async function ensureGamesWeekColumn() {
+  await query('alter table games add column if not exists week smallint');
+}
+
 export async function syncContestGames(args: {
   contestId?: string;
   bracketFromDate?: string;
   bracketToDate?: string;
   includeBracketContests?: boolean;
 }): Promise<SyncContestResult[]> {
+  await ensureGamesWeekColumn();
   const includeBracketContests = args.includeBracketContests ?? true;
   const contests = await getContestsForIngest(args.contestId);
   const results: SyncContestResult[] = [];

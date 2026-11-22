@@ -55,6 +55,7 @@ create table games (
   home_score int,
   away_score int,
   winner text,
+  week smallint,
   unique (contest_id, provider_game_id)
 );
 

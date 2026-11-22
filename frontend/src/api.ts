@@ -68,6 +68,7 @@ export type Contest = {
   scoringConfig?: {
     pickem?: { useConfidence?: boolean };
     tiebreaker?: { prompt?: string };
+    tiebreakers?: Record<string, string>;
     nfl?: { fromDate?: string; toDate?: string };
   } | null;
 };
@@ -114,6 +115,7 @@ export type Game = {
   homeScore: number | null;
   awayScore: number | null;
   winner: string | null;
+  week: number | null;
 };
 
 export type CbbSpotMatchGame = {
@@ -149,16 +151,6 @@ export type LeaderboardRow = {
   submittedAt: string | null;
 };
 
-export type SeasonStandings = {
-  season: number | null;
-  wins: number;
-  losses: number;
-  points: number;
-  rank: number | null;
-  percentile: number | null;
-  totalEntrants: number;
-};
-
 export type PickPercentageRow = {
   gameKey: string;
   team: string;
@@ -183,6 +175,7 @@ export type ParticipantEntryPickemPick = {
   homeTeam: string;
   awayTeam: string;
   startTime: string;
+  week: number | null;
 };
 
 export type ParticipantEntryBracketPick = {
@@ -194,6 +187,7 @@ export type ParticipantEntryBracketPick = {
 };
 
 export type EntryTiebreaker = {
+  week?: number;
   prompt: string;
   answer: string;
   numericGuess: number | null;
@@ -212,6 +206,7 @@ export type ParticipantContestEntry = {
   };
   picks: Array<ParticipantEntryPickemPick | ParticipantEntryBracketPick>;
   tiebreaker?: EntryTiebreaker | null;
+  tiebreakers?: EntryTiebreaker[];
 };
 
 export type UserStatsYearRow = {
@@ -370,10 +365,6 @@ export const api = {
     }>(`/contests/${contestId}/leaderboard`, {}, userId);
   },
 
-  async contestSeasonStandings(userId: string, contestId: string) {
-    return request<SeasonStandings>(`/contests/${contestId}/season-standings`, {}, userId);
-  },
-
   async topOneLeaderboard(userId: string) {
     return request<{ leaderboard: TopOneAggregateRow[] }>(`/leaderboards/top-one`, {}, userId);
   },
@@ -459,9 +450,9 @@ export const api = {
     );
   },
 
-  async getEntryTiebreaker(userId: string, contestId: string, entryId: string) {
+  async getEntryTiebreaker(userId: string, contestId: string, entryId: string, week = 0) {
     return request<{ tiebreaker: EntryTiebreaker | null }>(
-      `/contests/${contestId}/entries/${entryId}/tiebreaker`,
+      `/contests/${contestId}/entries/${entryId}/tiebreaker?week=${week}`,
       {},
       userId
     );
@@ -470,7 +461,7 @@ export const api = {
   async saveEntryTiebreaker(userId: string, contestId: string, entryId: string, payload: EntryTiebreaker) {
     return request<{ tiebreaker: EntryTiebreaker }>(
       `/contests/${contestId}/entries/${entryId}/tiebreaker`,
-      { method: 'POST', body: JSON.stringify(payload) },
+      { method: 'POST', body: JSON.stringify({ ...payload, week: payload.week ?? 0 }) },
       userId
     );
   },
