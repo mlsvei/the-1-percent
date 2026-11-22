@@ -1,9 +1,15 @@
 import { config } from '../config.js';
+import { query } from '../db.js';
 import { getContestsForIngest, getLastIngestWarnings, syncContestGames, type SyncContestResult } from './game-ingest.js';
 import { gradeContests } from './grading.js';
 
-const ACTIVE_INTERVAL_SECONDS = 900;
-const IDLE_INTERVAL_SECONDS = Math.max(config.ingest.intervalSeconds, ACTIVE_INTERVAL_SECONDS);
+// Poll fast only while a game is live or about to kick off; otherwise poll rarely.
+// This is what keeps SportsDataIO call volume sane - most of the week nothing is
+// being played, so there is nothing to gain from polling every few minutes.
+const ACTIVE_INTERVAL_SECONDS = Math.max(config.ingest.intervalSeconds, 120);
+const IDLE_INTERVAL_SECONDS = 3600;
+const UPCOMING_LOOKAHEAD_MS = 20 * 60 * 1000;
+const POST_KICKOFF_WINDOW_MS = 5 * 60 * 60 * 1000;
 
 type WorkerStatus = {
   enabled: boolean;
@@ -51,10 +57,36 @@ function formatSyncLog(results: SyncContestResult[]): string {
     .join(' | ');
 }
 
+function isFinalStatus(status: string): boolean {
+  return /final|complete/i.test(status);
+}
+
+async function hasLiveOrImminentGame(contestIds: string[]): Promise<boolean> {
+  if (contestIds.length === 0) return false;
+
+  const result = await query<{ startTime: string; winner: string | null; status: string }>(
+    'select start_time as "startTime", winner, status from games where contest_id = any($1)',
+    [contestIds]
+  );
+
+  const now = Date.now();
+  return result.rows.some((game) => {
+    if (game.winner != null || isFinalStatus(game.status)) return false;
+    const startMs = new Date(game.startTime).getTime();
+    if (!Number.isFinite(startMs)) return false;
+    return startMs - now <= UPCOMING_LOOKAHEAD_MS && now - startMs <= POST_KICKOFF_WINDOW_MS;
+  });
+}
+
 async function getNextIntervalSeconds(): Promise<number> {
   try {
     const contests = await getContestsForIngest();
-    return contests.length > 0 ? ACTIVE_INTERVAL_SECONDS : IDLE_INTERVAL_SECONDS;
+    const activeContestIds = contests
+      .filter((contest) => (contest.scoring_config as { ingestDisabled?: unknown } | null)?.ingestDisabled !== true)
+      .map((contest) => contest.id);
+
+    const live = await hasLiveOrImminentGame(activeContestIds);
+    return live ? ACTIVE_INTERVAL_SECONDS : IDLE_INTERVAL_SECONDS;
   } catch (error) {
     console.warn('[ingest-worker] failed to determine active contest count, using idle interval:', error);
     return IDLE_INTERVAL_SECONDS;
