@@ -226,10 +226,11 @@ const NFL_TEAM_CODE_TO_NAME: Record<string, string> = {
   SF: 'San Francisco 49ers',
   TB: 'Tampa Bay Buccaneers',
   TEN: 'Tennessee Titans',
-  WAS: 'Washington Commanders'
+  WAS: 'Washington Commanders',
+  WSH: 'Washington Commanders'
 };
 
-function canonicalizeNflTeamName(name: string): string {
+export function canonicalizeNflTeamName(name: string): string {
   return NFL_TEAM_CODE_TO_NAME[name.trim().toUpperCase()] ?? name;
 }
 
@@ -310,6 +311,66 @@ async function getJsonArray<T>(url: string): Promise<T[]> {
 export async function fetchNflSchedules(season: number): Promise<NflScheduleItem[]> {
   const url = withTemplate(config.sportsDataIo.nflSchedulesUrlTemplate, { season: String(season) });
   return getJsonArray<NflScheduleItem>(url);
+}
+
+type EspnCompetitor = {
+  homeAway: 'home' | 'away';
+  score?: string;
+  winner?: boolean;
+  team?: { displayName?: string; abbreviation?: string };
+};
+
+type EspnEvent = {
+  id: string;
+  date: string;
+  status?: { type?: { completed?: boolean; description?: string } };
+  competitions?: Array<{ competitors?: EspnCompetitor[] }>;
+};
+
+function normalizeEspnNflEvent(event: EspnEvent, week: number): NormalizedGame | null {
+  const competitors = event.competitions?.[0]?.competitors ?? [];
+  const home = competitors.find((c) => c.homeAway === 'home');
+  const away = competitors.find((c) => c.homeAway === 'away');
+  if (!home || !away) return null;
+
+  const homeTeam = canonicalizeNflTeamName(home.team?.abbreviation ?? home.team?.displayName ?? 'Unknown Home');
+  const awayTeam = canonicalizeNflTeamName(away.team?.abbreviation ?? away.team?.displayName ?? 'Unknown Away');
+  const homeScore = home.score != null && home.score !== '' ? Number(home.score) : null;
+  const awayScore = away.score != null && away.score !== '' ? Number(away.score) : null;
+  const completed = event.status?.type?.completed === true;
+  const status = event.status?.type?.description ?? 'Scheduled';
+  const winner = completed ? (home.winner ? homeTeam : away.winner ? awayTeam : null) : null;
+
+  return {
+    providerGameId: `ESPN-${event.id}`,
+    sport: 'NFL',
+    homeTeam,
+    awayTeam,
+    startTime: event.date,
+    status,
+    homeScore,
+    awayScore,
+    winner,
+    week
+  };
+}
+
+// Free, unofficial, no API key required - used as the primary NFL score source so
+// grading doesn't depend on SportsDataIO's call quota. Falls back to SportsDataIO
+// (see syncNflContest) if ESPN's endpoint is unreachable or changes shape.
+export async function fetchNflWeekFromEspn(season: number, week: number): Promise<NormalizedGame[]> {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?year=${season}&seasontype=2&week=${week}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`ESPN scoreboard request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const body = (await response.json()) as { events?: EspnEvent[] };
+  const events = body.events ?? [];
+
+  return events
+    .map((event) => normalizeEspnNflEvent(event, week))
+    .filter((game): game is NormalizedGame => game !== null);
 }
 
 async function fetchEspnNbaGamesByDate(date: string): Promise<NbaGameItem[]> {

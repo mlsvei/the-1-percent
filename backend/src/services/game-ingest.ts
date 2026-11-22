@@ -4,6 +4,7 @@ import {
   fetchCbbGamesByDate,
   fetchNbaGamesByDate,
   fetchNflSchedules,
+  fetchNflWeekFromEspn,
   fetchNhlGamesByDate,
   fetchSoccerGamesByDate,
   normalizeCbbGame,
@@ -443,18 +444,44 @@ function readNflDateRange(scoringConfig: Record<string, unknown> | null): { from
   return { fromDate: raw.fromDate, toDate: raw.toDate };
 }
 
-async function syncNflContest(contest: ContestRow): Promise<{ syncedGames: number; changedGameIds: string[] }> {
-  const schedule = await fetchNflSchedules(contest.season);
-  let normalized = schedule.map(normalizeNflSchedule);
+async function fetchNflGamesFromEspn(contestId: string, season: number): Promise<NormalizedGame[] | null> {
+  const weeksResult = await query<{ week: number }>(
+    'select distinct week from games where contest_id = $1 and week is not null order by week',
+    [contestId]
+  );
+  const weeks = weeksResult.rows.map((row) => row.week);
+  if (weeks.length === 0) return null;
 
-  const range = readNflDateRange(contest.scoring_config);
-  if (range) {
-    const fromMs = new Date(`${range.fromDate}T00:00:00.000Z`).getTime();
-    const toMs = new Date(`${range.toDate}T23:59:59.999Z`).getTime();
-    normalized = normalized.filter((game) => {
-      const startMs = new Date(game.startTime).getTime();
-      return startMs >= fromMs && startMs <= toMs;
-    });
+  const games: NormalizedGame[] = [];
+  for (const week of weeks) {
+    const weekGames = await fetchNflWeekFromEspn(season, week);
+    games.push(...weekGames);
+  }
+  return games;
+}
+
+async function syncNflContest(contest: ContestRow): Promise<{ syncedGames: number; changedGameIds: string[] }> {
+  let normalized: NormalizedGame[] | null = null;
+
+  try {
+    normalized = await fetchNflGamesFromEspn(contest.id, contest.season);
+  } catch (error) {
+    console.warn('[game-ingest] ESPN NFL scoreboard fetch failed, falling back to SportsDataIO:', error);
+  }
+
+  if (!normalized || normalized.length === 0) {
+    const schedule = await fetchNflSchedules(contest.season);
+    normalized = schedule.map(normalizeNflSchedule);
+
+    const range = readNflDateRange(contest.scoring_config);
+    if (range) {
+      const fromMs = new Date(`${range.fromDate}T00:00:00.000Z`).getTime();
+      const toMs = new Date(`${range.toDate}T23:59:59.999Z`).getTime();
+      normalized = normalized.filter((game) => {
+        const startMs = new Date(game.startTime).getTime();
+        return startMs >= fromMs && startMs <= toMs;
+      });
+    }
   }
 
   return upsertContestGames(contest.id, normalized);
