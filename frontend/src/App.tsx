@@ -2595,12 +2595,18 @@ export default function App() {
                 return (
                   <article className="card lift" key={contest.id}>
                     <div className="row between gap"><h3>{contest.name}</h3><span className="muted">{contest.status}</span></div>
-                    {rows.length === 0 ? <p className="muted">No entries yet.</p> : (
+                    {rows.length === 0 ? <p className="muted">No entries yet.</p> : (() => {
+                      const showRecord = contest.type !== 'BRACKET_NCAAM';
+                      return (
                       <>
                         <div className="leaderboardHeader">
                           <span>Rank</span>
                           <span>User</span>
-                          <span className="leaderboardHeaderMeta"><span>Percentile</span><span>Points</span></span>
+                          <span className="leaderboardHeaderMeta">
+                            {showRecord ? <span className="leaderboardRecordHeader">W-L</span> : null}
+                            <span>Percentile</span>
+                            <span>Points</span>
+                          </span>
                         </div>
                         <ol className="list leaderboardList">
                         {rows.map((row, index) => {
@@ -2615,6 +2621,7 @@ export default function App() {
                                   <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
                                 </div>
                                 <div className="leaderboardMeta">
+                                  {showRecord ? <span className="leaderboardRecord">{row.wins}-{row.losses}</span> : null}
                                   <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
                                   <span className="leaderboardPoints">{row.totalPoints} pts</span>
                                 </div>
@@ -2624,7 +2631,8 @@ export default function App() {
                         })}
                         </ol>
                       </>
-                    )}
+                      );
+                    })()}
                   </article>
                 );
               })}
@@ -3250,9 +3258,9 @@ export default function App() {
                               </div>
                               {isGraded && game.awayScore !== null && game.homeScore !== null ? (
                                 <div className="nflPickScoreBar">
-                                  <span className={awayWon ? 'nflScoreWin' : 'nflScoreLose'}>{game.awayScore}</span>
+                                  <span className="nflScoreValue">{game.awayScore}</span>
                                   <span className="nflScoreSep">-</span>
-                                  <span className={homeWon ? 'nflScoreWin' : 'nflScoreLose'}>{game.homeScore}</span>
+                                  <span className="nflScoreValue">{game.homeScore}</span>
                                 </div>
                               ) : null}
                               {!isStraightPickemContest ? (

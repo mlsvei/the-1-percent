@@ -1005,6 +1005,18 @@ td {
   white-space: nowrap;
 }
 
+.leaderboardRecordHeader {
+  min-width: 46px;
+  text-align: right;
+}
+
+.leaderboardRecord {
+  min-width: 46px;
+  text-align: right;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
 .leaderboardPercentile {
   min-width: 60px;
   text-align: right;
@@ -2576,12 +2588,8 @@ td {
   letter-spacing: 0.04em;
 }
 
-.nflScoreWin {
-  color: var(--good);
-}
-
-.nflScoreLose {
-  color: var(--ink-soft);
+.nflScoreValue {
+  color: var(--ink);
 }
 
 .nflScoreSep {

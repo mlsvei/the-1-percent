@@ -149,6 +149,8 @@ export type LeaderboardRow = {
   displayName: string;
   totalPoints: number;
   submittedAt: string | null;
+  wins: number;
+  losses: number;
 };
 
 export type PickPercentageRow = {

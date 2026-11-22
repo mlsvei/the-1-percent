@@ -449,10 +449,20 @@ contestsRouter.get('/contests/:contestId/leaderboard', requireUser, async (req, 
     displayName: string;
     totalPoints: number;
     submittedAt: string | null;
+    wins: number;
+    losses: number;
   }>(
-    `select e.user_id as "userId", u.display_name as "displayName", e.total_points as "totalPoints", e.submitted_at as "submittedAt"
+    `select e.user_id as "userId", u.display_name as "displayName", e.total_points as "totalPoints", e.submitted_at as "submittedAt",
+            coalesce(pc.wins, 0) as wins, coalesce(pc.losses, 0) as losses
      from entries e
      join users u on u.id = e.user_id
+     left join (
+       select entry_id,
+              count(*) filter (where is_correct = true)::int as wins,
+              count(*) filter (where is_correct = false)::int as losses
+       from picks
+       group by entry_id
+     ) pc on pc.entry_id = e.id
      where e.contest_id = $1
      order by e.total_points desc, e.submitted_at asc nulls last`,
     [req.params.contestId]
