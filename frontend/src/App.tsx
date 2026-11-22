@@ -1633,9 +1633,15 @@ export default function App() {
     try {
       const { entry } = await ensureContestEntry(selectedContestId);
 
+      const now = Date.now();
       const payload = games
-        .filter((g) => nextDraft[g.id]?.pickedWinner)
+        .filter((g) => nextDraft[g.id]?.pickedWinner && new Date(g.startTime).getTime() > now)
         .map((g) => ({ gameId: g.id, pickedWinner: nextDraft[g.id].pickedWinner }));
+
+      if (payload.length === 0) {
+        setStatus('That game has already locked.');
+        return;
+      }
 
       await api.submitPicks(authToken, selectedContestId, payload);
       const saved = await api.getPicks(authToken, selectedContestId, entry.id);
