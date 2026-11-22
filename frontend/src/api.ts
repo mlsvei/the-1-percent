@@ -65,7 +65,11 @@ export type Contest = {
   startTime?: string;
   lockAt?: string;
   endAt?: string;
-  scoringConfig?: { pickem?: { useConfidence?: boolean }; tiebreaker?: { prompt?: string } } | null;
+  scoringConfig?: {
+    pickem?: { useConfidence?: boolean };
+    tiebreaker?: { prompt?: string };
+    nfl?: { fromDate?: string; toDate?: string };
+  } | null;
 };
 
 export type Group = {
@@ -143,6 +147,16 @@ export type LeaderboardRow = {
   displayName: string;
   totalPoints: number;
   submittedAt: string | null;
+};
+
+export type SeasonStandings = {
+  season: number | null;
+  wins: number;
+  losses: number;
+  points: number;
+  rank: number | null;
+  percentile: number | null;
+  totalEntrants: number;
 };
 
 export type PickPercentageRow = {
@@ -354,6 +368,10 @@ export const api = {
       contestStatus: string;
       leaderboard: LeaderboardRow[];
     }>(`/contests/${contestId}/leaderboard`, {}, userId);
+  },
+
+  async contestSeasonStandings(userId: string, contestId: string) {
+    return request<SeasonStandings>(`/contests/${contestId}/season-standings`, {}, userId);
   },
 
   async topOneLeaderboard(userId: string) {

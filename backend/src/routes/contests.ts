@@ -7,6 +7,7 @@ import { refreshContestStatuses } from '../services/contest-status.js';
 import { buildUpcomingSpotMatches } from '../services/cbb-spot-matcher.js';
 import { requireContestCreator } from '../middleware/require-contest-creator.js';
 import { requireUser } from '../middleware/require-user.js';
+import type { AuthenticatedRequest } from '../types.js';
 
 export const contestsRouter = Router();
 
@@ -512,6 +513,82 @@ contestsRouter.get('/contests/:contestId/pick-percentages', async (req, res) => 
   });
 
   res.json({ contestId: req.params.contestId, type: contest.type, rows: withPercentages });
+});
+
+contestsRouter.get('/contests/:contestId/season-standings', requireUser, async (req: AuthenticatedRequest, res) => {
+  const contestResult = await query<{ id: string; type: string; season: number | null }>(
+    'select id, type, season from contests where id = $1',
+    [req.params.contestId]
+  );
+  const contest = contestResult.rows[0];
+
+  if (!contest) {
+    res.status(404).json({ error: 'Contest not found' });
+    return;
+  }
+
+  if (contest.season == null) {
+    res.json({ season: null, wins: 0, losses: 0, points: 0, rank: null, percentile: null, totalEntrants: 0 });
+    return;
+  }
+
+  const siblingResult = await query<{ id: string }>(
+    'select id from contests where type = $1 and season = $2',
+    [contest.type, contest.season]
+  );
+  const siblingIds = siblingResult.rows.map((row) => row.id);
+
+  const totalsResult = await query<{ userId: string; totalPoints: number }>(
+    `select e.user_id as "userId", sum(e.total_points)::int as "totalPoints"
+     from entries e
+     where e.contest_id = any($1)
+     group by e.user_id
+     order by sum(e.total_points) desc`,
+    [siblingIds]
+  );
+
+  const rows = totalsResult.rows;
+  const totalEntrants = rows.length;
+  let rank: number | null = null;
+  let points = 0;
+
+  for (let i = 0; i < rows.length; i += 1) {
+    if (rows[i].userId === req.userId) {
+      points = rows[i].totalPoints;
+      let r = 1;
+      for (let j = 1; j <= i; j += 1) {
+        if (rows[j].totalPoints < rows[j - 1].totalPoints) r = j + 1;
+      }
+      rank = r;
+      break;
+    }
+  }
+
+  const percentile =
+    rank === null
+      ? null
+      : totalEntrants > 1
+        ? Math.max(0, Math.min(100, ((totalEntrants - rank) / (totalEntrants - 1)) * 100))
+        : 100;
+
+  const pickResult = await query<{ wins: number; losses: number }>(
+    `select count(*) filter (where p.is_correct = true)::int as wins,
+            count(*) filter (where p.is_correct = false)::int as losses
+     from picks p
+     join entries e on e.id = p.entry_id
+     where e.contest_id = any($1) and e.user_id = $2`,
+    [siblingIds, req.userId]
+  );
+
+  res.json({
+    season: contest.season,
+    wins: pickResult.rows[0]?.wins ?? 0,
+    losses: pickResult.rows[0]?.losses ?? 0,
+    points,
+    rank,
+    percentile,
+    totalEntrants
+  });
 });
 
 contestsRouter.get('/leaderboards/top-one', requireUser, async (_req, res) => {

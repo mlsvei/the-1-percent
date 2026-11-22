@@ -13,7 +13,8 @@ import {
   ParticipantContestEntry,
   ParticipantEntryBracketPick,
   ParticipantEntryPickemPick,
-  UserStatsProfile
+  UserStatsProfile,
+  SeasonStandings
 } from './api';
 import {
   OlympicBracketTeam,
@@ -35,7 +36,7 @@ import {
 import { renderBracketTeamIcon, renderUefaTeamIcon } from './lib/bracketIcons';
 import { MarchRegionView, MARCH_MADNESS_SEEDS, NCAAB_CONFERENCE_TEAMS } from './lib/marchMadness';
 import { nbaLogoUrl, nhlLogoUrl, nflLogoUrl } from './lib/teamAssets';
-import { ContestSportFilter, fmtDate, fmtDateEastern, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
+import { ContestSportFilter, fmtDate, fmtDateEastern, fmtDateRange, weekLabelFromContestName, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
 import {
   leaderboardDisplayName,
   rankFromPoints,
@@ -310,6 +311,7 @@ export default function App() {
   const [isGroupLeaderboardLoading, setIsGroupLeaderboardLoading] = useState(false);
   const [contestLeaderboards, setContestLeaderboards] = useState<Record<string, LeaderboardRow[]>>({});
   const [isContestLeaderboardsLoading, setIsContestLeaderboardsLoading] = useState(false);
+  const [seasonStandingsByContest, setSeasonStandingsByContest] = useState<Record<string, SeasonStandings>>({});
   const [topOneAggregateRows, setTopOneAggregateRows] = useState<TopOneAggregateRow[]>([]);
   const [isTopOneAggregateLoading, setIsTopOneAggregateLoading] = useState(false);
   const [contestSportFilter, setContestSportFilter] = useState<ContestSportFilter>('ALL');
@@ -423,6 +425,14 @@ export default function App() {
 
   const isPickemContest = selectedContest?.type === 'PICKEM_NFL' || selectedContest?.type === 'PICKEM_NBA' || selectedContest?.type === 'PICKEM_NHL';
   const isNflPickemContest = selectedContest?.type === 'PICKEM_NFL';
+  const seasonWeeks = useMemo(() => {
+    if (!isNflPickemContest || !selectedContest) return [];
+    return contests
+      .filter((contest) => contest.type === selectedContest.type && contest.season === selectedContest.season)
+      .slice()
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  }, [contests, isNflPickemContest, selectedContest]);
+  const seasonStandings = selectedContestId ? seasonStandingsByContest[selectedContestId] ?? null : null;
   const isStraightPickemContest = isPickemContest && selectedContest?.scoringConfig?.pickem?.useConfidence !== true;
   const tiebreakerPrompt = selectedContest?.scoringConfig?.tiebreaker?.prompt ?? null;
   const isOlympicBracketContest =
@@ -440,6 +450,20 @@ export default function App() {
     selectedContest.name.toLowerCase().includes('march madness') &&
     selectedContest.name.toLowerCase().includes('standard');
   const savedPickRowByGame = useMemo(() => new Map(savedPicks.map((pick) => [pick.gameId, pick])), [savedPicks]);
+  const currentWeekPicksMade = useMemo(() => {
+    if (!isNflPickemContest) return { made: 0, total: 0 };
+    return { made: savedPickRowByGame.size, total: games.length };
+  }, [isNflPickemContest, savedPickRowByGame, games]);
+  const currentWeekRecord = useMemo(() => {
+    if (!isNflPickemContest) return { wins: 0, losses: 0 };
+    let wins = 0;
+    let losses = 0;
+    for (const pick of savedPickRowByGame.values()) {
+      if (pick.isCorrect === true) wins += 1;
+      else if (pick.isCorrect === false) losses += 1;
+    }
+    return { wins, losses };
+  }, [isNflPickemContest, savedPickRowByGame]);
   const savedBracketBySlot = useMemo(() => new Map(savedBracket.map((pick) => [pick.gameSlot, pick.pickedTeam])), [savedBracket]);
   const savedBracketRowBySlot = useMemo(() => new Map(savedBracket.map((pick) => [pick.gameSlot, pick])), [savedBracket]);
   const olympicGames = useMemo(() => resolveOlympicBracketGames(savedBracketBySlot), [savedBracketBySlot]);
@@ -1039,6 +1063,31 @@ export default function App() {
       active = false;
     };
   }, [userId, activeTopPage, selectedContestId]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!authToken || activeTopPage !== 'contest' || !selectedContestId || !isNflPickemContest) {
+      return () => {
+        active = false;
+      };
+    }
+
+    api
+      .contestSeasonStandings(authToken, selectedContestId)
+      .then((data) => {
+        if (!active) return;
+        setSeasonStandingsByContest((prev) => ({ ...prev, [selectedContestId]: data }));
+      })
+      .catch((err: Error) => {
+        if (!active) return;
+        handleAppError(err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [userId, activeTopPage, selectedContestId, isNflPickemContest]);
 
   useEffect(() => {
     let active = true;
@@ -2694,22 +2743,84 @@ export default function App() {
                       <button type="button" className="secondary" onClick={closeContestPage}>Back to Contests</button>
                     </div>
 
-                    <div className="entryStatsBar">
-                      <div className="entryStat">
-                        <span className="entryStatLabel">Points</span>
-                        <span className="entryStatValue">{displayedEntryPoints}</span>
+                    {isNflPickemContest ? (
+                      <>
+                        <div className="entryStatsBar seasonStatsBar">
+                          <div className="entryStat">
+                            <span className="entryStatLabel">W-L</span>
+                            <span className="entryStatValue">{seasonStandings ? `${seasonStandings.wins}-${seasonStandings.losses}` : '-'}</span>
+                          </div>
+                          <span className="entryStatDivider" aria-hidden="true" />
+                          <div className="entryStat">
+                            <span className="entryStatLabel">Rank</span>
+                            <span className="entryStatValue">{seasonStandings?.rank ?? '-'}</span>
+                          </div>
+                          <span className="entryStatDivider" aria-hidden="true" />
+                          <div className="entryStat">
+                            <span className="entryStatLabel">Pct</span>
+                            <span className="entryStatValue">{seasonStandings?.percentile != null ? `${seasonStandings.percentile.toFixed(1)}%` : '-'}</span>
+                          </div>
+                          <span className="entryStatDivider" aria-hidden="true" />
+                          <div className="entryStat">
+                            <span className="entryStatLabel">Points</span>
+                            <span className="entryStatValue">{seasonStandings?.points ?? 0}</span>
+                          </div>
+                        </div>
+
+                        <div className="weekProgressRow">
+                          <span className="muted">
+                            {weekLabelFromContestName(selectedContest.name) ?? selectedContest.name}
+                            {currentWeekPicksMade.total > 0 ? `: ${currentWeekRecord.wins}-${currentWeekRecord.losses}` : ''}
+                          </span>
+                          {currentWeekPicksMade.total > 0 ? (
+                            <span className="muted">{currentWeekPicksMade.made}/{currentWeekPicksMade.total} picks made</span>
+                          ) : null}
+                        </div>
+                        {currentWeekPicksMade.total > 0 ? (
+                          <div className="weekProgressBar">
+                            <div
+                              className="weekProgressFill"
+                              style={{ width: `${Math.round((currentWeekPicksMade.made / currentWeekPicksMade.total) * 100)}%` }}
+                            />
+                          </div>
+                        ) : null}
+
+                        {seasonWeeks.length > 1 ? (
+                          <div className="weekTabRow">
+                            {seasonWeeks.map((week) => (
+                              <button
+                                key={week.id}
+                                type="button"
+                                className={'weekTabBtn ' + (week.id === selectedContestId ? 'active' : '')}
+                                onClick={() => openContestPage(week.id)}
+                              >
+                                <span>{weekLabelFromContestName(week.name) ?? week.name}</span>
+                                {week.scoringConfig?.nfl?.fromDate && week.scoringConfig?.nfl?.toDate ? (
+                                  <span className="weekTabDate">{fmtDateRange(week.scoringConfig.nfl.fromDate, week.scoringConfig.nfl.toDate)}</span>
+                                ) : null}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="entryStatsBar">
+                        <div className="entryStat">
+                          <span className="entryStatLabel">Points</span>
+                          <span className="entryStatValue">{displayedEntryPoints}</span>
+                        </div>
+                        <span className="entryStatDivider" aria-hidden="true" />
+                        <div className="entryStat">
+                          <span className="entryStatLabel">Rank</span>
+                          <span className="entryStatValue">{displayedEntryRank ?? '-'}</span>
+                        </div>
+                        <span className="entryStatDivider" aria-hidden="true" />
+                        <div className="entryStat">
+                          <span className="entryStatLabel">Percentile</span>
+                          <span className="entryStatValue">{displayedEntryPercentile !== null ? `${displayedEntryPercentile.toFixed(2)}%` : '-'}</span>
+                        </div>
                       </div>
-                      <span className="entryStatDivider" aria-hidden="true" />
-                      <div className="entryStat">
-                        <span className="entryStatLabel">Rank</span>
-                        <span className="entryStatValue">{displayedEntryRank ?? '-'}</span>
-                      </div>
-                      <span className="entryStatDivider" aria-hidden="true" />
-                      <div className="entryStat">
-                        <span className="entryStatLabel">Percentile</span>
-                        <span className="entryStatValue">{displayedEntryPercentile !== null ? `${displayedEntryPercentile.toFixed(2)}%` : '-'}</span>
-                      </div>
-                    </div>
+                    )}
 
                     <div className="row gap contestDetailActions">
                       <button type="button" className="ctaBtn ctaBtnLarge" onClick={primaryOnClick}>{primaryAction.label}</button>
