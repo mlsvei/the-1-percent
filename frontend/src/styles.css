@@ -905,9 +905,13 @@ td {
 .saveMiss {
   margin-left: auto;
   color: #ff6b6b;
-  font-size: 1.05rem;
+  font-size: 1.3rem;
   font-weight: 900;
   line-height: 1;
+}
+
+.nflPickTeamTile.selected.loser .saveMiss {
+  color: #ffdede;
 }
 
 .contestNameLink {
@@ -2535,6 +2539,13 @@ td {
 
 .nflPickTeamTile.loser {
   opacity: 0.6;
+}
+
+.nflPickTeamTile.selected.loser {
+  background: linear-gradient(115deg, #7a2323, #4a1414);
+  border-color: var(--bad);
+  color: #ffe4e4;
+  opacity: 1;
 }
 
 .nflPickTeamLogo {

@@ -3221,7 +3221,7 @@ export default function App() {
                                   className={
                                     'nflPickTeamTile ' +
                                     (selectedWinner === game.awayTeam ? 'selected ' : '') +
-                                    (isGraded ? (awayWon ? 'winner' : 'loser') : '')
+                                    (isGraded ? (awayWon ? (selectedWinner === game.awayTeam ? 'winner' : '') : 'loser') : '')
                                   }
                                   onClick={() => isStraightPickemContest ? void onSelectStraightPickemTeam(game, game.awayTeam) : onDraftPickemTeam(game.id, game.awayTeam)}
                                   disabled={isSavedLoading || isViewingContestParticipantEntry}
@@ -3237,7 +3237,7 @@ export default function App() {
                                   className={
                                     'nflPickTeamTile ' +
                                     (selectedWinner === game.homeTeam ? 'selected ' : '') +
-                                    (isGraded ? (homeWon ? 'winner' : 'loser') : '')
+                                    (isGraded ? (homeWon ? (selectedWinner === game.homeTeam ? 'winner' : '') : 'loser') : '')
                                   }
                                   onClick={() => isStraightPickemContest ? void onSelectStraightPickemTeam(game, game.homeTeam) : onDraftPickemTeam(game.id, game.homeTeam)}
                                   disabled={isSavedLoading || isViewingContestParticipantEntry}
