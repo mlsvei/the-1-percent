@@ -2653,7 +2653,7 @@ export default function App() {
                         const isComplete = contestEntry?.isComplete === true;
                         const lockCountdown = countdownWithin24h(contest.lockAt, nowMs);
                         const lockLabel = contest.lockAt ? fmtDateEastern(contest.lockAt) + ' ET' : null;
-                        const firstGameLockIso = contest.startTime || contest.startsAt;
+                        const nextGameLockIso = contest.nextGameLockAt || (contest.lockMode !== 'PER_GAME' ? contest.startTime || contest.startsAt : null);
                         const action = contestPrimaryAction(contest);
 
                         return (
@@ -2666,9 +2666,9 @@ export default function App() {
                                   <span>Locks {lockLabel}{lockCountdown ? ` (${lockCountdown})` : ''}</span>
                                 </span>
                               ) : null}
-                              {firstGameLockIso ? (
+                              {nextGameLockIso ? (
                                 <span className="contestTimingLine">
-                                  <span>First game locks in <LiveCountdown targetIso={firstGameLockIso} /></span>
+                                  <span>Next game locks in <LiveCountdown targetIso={nextGameLockIso} /></span>
                                 </span>
                               ) : null}
                               <span className={isComplete ? 'entryBadge entered' : hasEntered ? 'entryBadge incomplete' : 'entryBadge notEntered'}>{isComplete ? 'Entered' : hasEntered ? 'Entry Not Complete' : 'Not Entered'}</span>
@@ -2753,7 +2753,9 @@ export default function App() {
                   : () => scrollToSection('contest-workspace');
                 const lockCountdown = countdownWithin24h(selectedContest.lockAt, nowMs);
                 const lockLabel = selectedContest.lockAt ? fmtDateEastern(selectedContest.lockAt) + ' ET' : null;
-                const firstGameLockIso = selectedContest.startTime || selectedContest.startsAt;
+                const nextGameLockIso =
+                  selectedContest.nextGameLockAt ||
+                  (selectedContest.lockMode !== 'PER_GAME' ? selectedContest.startTime || selectedContest.startsAt : null);
 
                 return (
                   <section className="card lift contestDetailHeader" id="contest-detail">
@@ -2762,8 +2764,8 @@ export default function App() {
                         <span className={'statusPill statusPill-' + selectedContest.status.toLowerCase()}>{selectedContest.status}</span>
                         <h2>{selectedContest.name}</h2>
                         <p className="muted">{contestTypeLabel(selectedContest)}{lockLabel ? ` · Locks ${lockLabel}${lockCountdown ? ` (${lockCountdown})` : ''}` : ''}</p>
-                        {firstGameLockIso ? (
-                          <p className="firstGameLockLine">First game locks in <LiveCountdown targetIso={firstGameLockIso} /></p>
+                        {nextGameLockIso ? (
+                          <p className="firstGameLockLine">Next game locks in <LiveCountdown targetIso={nextGameLockIso} /></p>
                         ) : null}
                       </div>
                       <button type="button" className="secondary" onClick={closeContestPage}>Back to Contests</button>

@@ -351,7 +351,8 @@ contestsRouter.get('/contests/admin', requireUser, requireContestCreator, async 
               when c.lock_mode = 'PER_GAME' then coalesce(max(g.start_time), c.starts_at)
               else coalesce(min(g.start_time), c.starts_at)
             end as "lockAt",
-            coalesce(max(g.start_time), c.starts_at) as "endAt"
+            coalesce(max(g.start_time), c.starts_at) as "endAt",
+            min(g.start_time) filter (where g.start_time > now()) as "nextGameLockAt"
      from contests c
      left join games g on g.contest_id = c.id
      group by c.id, c.name, c.type, c.season, c.starts_at, c.lock_mode, c.status, c.scoring_config
@@ -405,7 +406,8 @@ contestsRouter.get('/contests', async (_req, res) => {
               when c.lock_mode = 'PER_GAME' then coalesce(max(g.start_time), c.starts_at)
               else coalesce(min(g.start_time), c.starts_at)
             end as "lockAt",
-            coalesce(max(g.start_time), c.starts_at) as "endAt"
+            coalesce(max(g.start_time), c.starts_at) as "endAt",
+            min(g.start_time) filter (where g.start_time > now()) as "nextGameLockAt"
      from contests c
      left join games g on g.contest_id = c.id
      where c.status <> 'DRAFT'

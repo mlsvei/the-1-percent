@@ -65,6 +65,7 @@ export type Contest = {
   startTime?: string;
   lockAt?: string;
   endAt?: string;
+  nextGameLockAt?: string | null;
   scoringConfig?: {
     pickem?: { useConfidence?: boolean };
     tiebreaker?: { prompt?: string };
