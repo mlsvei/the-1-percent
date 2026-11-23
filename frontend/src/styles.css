@@ -212,6 +212,12 @@ h3 {
   gap: 9px;
 }
 
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .grid.two {
   grid-template-columns: 1fr 1fr;
 }
@@ -1059,7 +1065,13 @@ td {
   vertical-align: middle;
 }
 
-
+.leaderboardTopOneLogo {
+  height: 30px;
+  width: auto;
+  margin-left: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
 
 .entryBadge {
   margin-left: 8px;

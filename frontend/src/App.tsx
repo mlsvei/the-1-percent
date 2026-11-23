@@ -2629,12 +2629,21 @@ export default function App() {
                         {rows.map((row, index) => {
                           const rank = rankFromPoints(rows, index);
                           const percentile = percentileFromRank(rows.length, rank);
+                          const isTopOne = isTopOnePercentEntry(rows, row);
                           return (
                             <li key={`${contest.id}-${row.userId}`} className="leaderboardRow">
                               <span className="leaderboardRank">{rank}</span>
                               <div className="leaderboardEntryBody">
                                 <div className="leaderboardNameCell">
                                   <button type="button" className="contestNameLink" onClick={() => onLeaderboardNameClick(contest.id, row.userId)}>{leaderboardDisplayName(row)}</button>
+                                  {isTopOne ? (
+                                    <img
+                                      src="/logo-the-1-percent.png"
+                                      alt="Top 1%"
+                                      title="Top 1% finish"
+                                      className="leaderboardTopOneLogo"
+                                    />
+                                  ) : null}
                                   <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
                                 </div>
                                 <div className="leaderboardMeta">
