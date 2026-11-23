@@ -316,6 +316,7 @@ export default function App() {
   const [contestSportFilter, setContestSportFilter] = useState<ContestSportFilter>('ALL');
   const [priorContestSportFilter, setPriorContestSportFilter] = useState<ContestSportFilter>('ALL');
   const [leaderboardSportFilter, setLeaderboardSportFilter] = useState<ContestSportFilter>('ALL');
+  const [leaderboardYearFilter, setLeaderboardYearFilter] = useState('ALL');
   const [selectedLeaderboardContestId, setSelectedLeaderboardContestId] = useState('');
   const [leaderboardTopOneOnly, setLeaderboardTopOneOnly] = useState(false);
   const [selectedLeaderboardEntry, setSelectedLeaderboardEntry] = useState<ParticipantContestEntry | null>(null);
@@ -413,9 +414,18 @@ export default function App() {
     }
     return map;
   }, [entries]);
+  const leaderboardYearOptions = useMemo(() => {
+    const years = new Set(contests.map((contest) => contest.season));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [contests]);
   const filteredLeaderboardContests = useMemo(
-    () => contests.filter((contest) => contestMatchesSportFilter(contest, leaderboardSportFilter)),
-    [contests, leaderboardSportFilter]
+    () =>
+      contests.filter(
+        (contest) =>
+          contestMatchesSportFilter(contest, leaderboardSportFilter) &&
+          (leaderboardYearFilter === 'ALL' || contest.season === Number(leaderboardYearFilter))
+      ),
+    [contests, leaderboardSportFilter, leaderboardYearFilter]
   );
   const leaderboardContestsToRender = useMemo(() => {
     if (!selectedLeaderboardContestId || selectedLeaderboardContestId === LEADERBOARD_TOP_ONE_OPTION) return [];
@@ -2559,6 +2569,13 @@ export default function App() {
                 <p className="muted">Filter by sport</p>
                 <select value={leaderboardSportFilter} onChange={(e) => setLeaderboardSportFilter(e.target.value as ContestSportFilter)}>
                   <option value="ALL">All Sports</option><option value="Basketball">Basketball</option><option value="Olympics">Olympics</option><option value="Football">Football</option><option value="Hockey">Hockey</option><option value="Baseball">Baseball</option><option value="Soccer">Soccer</option>
+                </select>
+              </div>
+              <div className="grid two">
+                <p className="muted">Filter by year</p>
+                <select value={leaderboardYearFilter} onChange={(e) => setLeaderboardYearFilter(e.target.value)}>
+                  <option value="ALL">All Time</option>
+                  {leaderboardYearOptions.map((year) => (<option key={year} value={year}>{year}</option>))}
                 </select>
               </div>
               <div className="grid two">
