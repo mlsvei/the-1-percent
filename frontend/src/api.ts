@@ -394,7 +394,11 @@ export const api = {
   },
 
   async createGroup(userId: string, contestId: string, name: string, visibility: 'PUBLIC' | 'PRIVATE', password?: string) {
-    return request('/groups', { method: 'POST', body: JSON.stringify({ contestId, name, visibility, password }) }, userId);
+    return request<{ id: string; contestId: string; name: string; visibility: 'PUBLIC' | 'PRIVATE' }>(
+      '/groups',
+      { method: 'POST', body: JSON.stringify({ contestId, name, visibility, password }) },
+      userId
+    );
   },
 
   async joinGroup(userId: string, contestId: string, groupId: string) {

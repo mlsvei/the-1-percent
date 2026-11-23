@@ -53,7 +53,7 @@ type BracketDraftRow = {
   round: string;
 };
 
-type AppPage = 'home' | 'entries' | 'contest' | 'leaderboards' | 'groups' | 'user-stats' | 'profile';
+type AppPage = 'home' | 'entries' | 'contest' | 'leaderboards' | 'groups' | 'group-detail' | 'user-stats' | 'profile';
 type StatsReturnPage = Exclude<AppPage, 'user-stats'>;
 
 function NavIcon({ d }: { d: string }) {
@@ -1181,7 +1181,7 @@ export default function App() {
       active = false;
     };
 
-    const groupsContestId = activeTopPage === 'groups' ? selectedGroupContestId : selectedContestId;
+    const groupsContestId = activeTopPage === 'groups' || activeTopPage === 'group-detail' ? selectedGroupContestId : selectedContestId;
     if (!groupsContestId) {
       setGroups([]);
       setSelectedGroupId('');
@@ -1504,12 +1504,12 @@ export default function App() {
         setError('Private groups require a password with at least 4 characters.');
         return;
       }
-      await api.createGroup(authToken, contestId, groupName, groupVisibility, groupVisibility === 'PRIVATE' ? groupPassword.trim() : undefined);
+      const created = await api.createGroup(authToken, contestId, groupName, groupVisibility, groupVisibility === 'PRIVATE' ? groupPassword.trim() : undefined);
       setGroupName('');
       setGroupPassword('');
       await refreshAll(authToken, contestId || null);
       await refreshPopularGroups(contestId);
-      setStatus(groupVisibility === 'PRIVATE' ? 'Private group created.' : 'Public group created.');
+      await goToGroupDetail(created.id, contestId, groupVisibility === 'PRIVATE' ? 'Private group created.' : 'Public group created.');
     } catch (err) {
       handleAppError(err);
     }
@@ -1971,11 +1971,19 @@ export default function App() {
 
   function openGroupPage(groupId: string) {
     if (!selectedContestId) return;
-    setActiveTopPage('groups');
+    void goToGroupDetail(groupId, selectedContestId);
+  }
+
+  async function goToGroupDetail(groupId: string, contestId: string, statusMessage?: string) {
     setSelectedGroupId(groupId);
-    setSelectedGroupContestId(selectedContestId);
-    setTimeout(() => scrollToSection('groups-page'), 0);
-    void loadLeaderboard(groupId, selectedContestId);
+    setSelectedGroupContestId(contestId);
+    setLeaderboardRows([]);
+    setSelectedLeaderboardEntry(null);
+    setLeaderboardEntryContestId('');
+    setActiveTopPage('group-detail');
+    setTimeout(() => scrollToSection('group-detail-page'), 0);
+    await loadLeaderboard(groupId, contestId);
+    if (statusMessage) setStatus(statusMessage);
   }
 
   async function onOpenUserStats(targetUserId: string) {
@@ -2146,7 +2154,7 @@ export default function App() {
               <button
                 type="button"
                 className="navItem"
-                aria-current={activeTopPage === 'groups' ? 'page' : undefined}
+                aria-current={activeTopPage === 'groups' || activeTopPage === 'group-detail' ? 'page' : undefined}
                 onClick={() => { setSelectedGroupContestId(selectedContestId || ''); setActiveTopPage('groups'); setTimeout(() => scrollToSection('groups-page'), 0); }}
               >
                 <NavIcon d={ICON_GROUPS} />
@@ -2337,10 +2345,8 @@ export default function App() {
                       value={selectedGroupId}
                       onChange={(e) => {
                         const nextGroupId = e.target.value;
-                        setSelectedGroupId(nextGroupId);
-                        setLeaderboardRows([]);
                         if (nextGroupId && selectedGroupContestId) {
-                          void loadLeaderboard(nextGroupId, selectedGroupContestId);
+                          void goToGroupDetail(nextGroupId, selectedGroupContestId);
                         }
                       }}
                     >
@@ -2353,146 +2359,159 @@ export default function App() {
                     </select>
                   </div>
 
-                  {!selectedGroupId ? (
-                    <>
-                      <h3>Popular Public Groups</h3>
-                      {isPopularGroupsLoading ? <p className="muted">Loading public groups...</p> : null}
-                      {!isPopularGroupsLoading && popularPublicGroups.length === 0 ? (
-                        <p className="muted">No public groups available for this contest yet.</p>
-                      ) : null}
-                      {popularPublicGroups.length > 0 ? (
-                        <ul className="list">
-                          {popularPublicGroups.map((group) => (
-                            <li key={group.id}>
-                              <strong>{group.name}</strong>
-                              <span>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</span>
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() => void onJoinPopularGroup(group.contestId, group.id)}
-                                disabled={group.isMember}
-                              >
-                                {group.isMember ? 'Joined' : 'Join'}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </>
+                  <h3>Popular Public Groups</h3>
+                  {isPopularGroupsLoading ? <p className="muted">Loading public groups...</p> : null}
+                  {!isPopularGroupsLoading && popularPublicGroups.length === 0 ? (
+                    <p className="muted">No public groups available for this contest yet.</p>
                   ) : null}
-
-                  {isGroupLeaderboardLoading ? <p className="muted">Loading group leaderboard...</p> : null}
-                  {!isGroupLeaderboardLoading && selectedGroupId && leaderboardRows.length === 0 ? (
-                    <p className="muted">No entries yet in this group.</p>
-                  ) : null}
-                  {leaderboardRows.length > 0 ? (
-                    <>
-                      {(() => {
-                        const contestRowsForPercentile = selectedGroupContestId ? (contestLeaderboards[selectedGroupContestId] ?? []) : [];
-                        return (
-                          <>
-                      <div className="leaderboardHeader">
-                        <span>Rank</span>
-                        <span>User name</span>
-                        <span className="leaderboardHeaderMeta"><span>Percentile</span><span>Points</span></span>
-                      </div>
-                      <ol className="list leaderboardList">
-                      {leaderboardRows.map((row, index) => {
-                        const rank = rankFromPoints(leaderboardRows, index);
-                        const overallIndex = contestRowsForPercentile.findIndex(
-                          (contestRow) => contestRow.userId.trim().toLowerCase() === row.userId.trim().toLowerCase()
-                        );
-                        const overallRank = rankForUserByPoints(contestRowsForPercentile, row.userId);
-                        const percentile = overallRank ? percentileFromRank(contestRowsForPercentile.length, overallRank) : 0;
-                        const overallRow = overallIndex >= 0 ? contestRowsForPercentile[overallIndex] : null;
-                        const isTopOne = overallRow ? isTopOnePercentEntry(contestRowsForPercentile, overallRow) : false;
-                        return (
-                          <li key={row.userId} className="leaderboardRow">
-                            <span className="leaderboardRank">{rank}</span>
-                            <div className="leaderboardEntryBody">
-                              <div className="leaderboardNameCell">
-                                <button
-                                  type="button"
-                                  className="contestNameLink"
-                                  onClick={() => {
-                                    if (!selectedGroupContestId) return;
-                                    onLeaderboardNameClick(selectedGroupContestId, row.userId);
-                                  }}
-                                >
-                                  {row.displayName}
-                                  {isTopOne ? <span className="topOneBadge">Top 1%</span> : null}
-                                </button>
-                                <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
-                              </div>
-                              <div className="leaderboardMeta">
-                                <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
-                                <span className="leaderboardPoints">{row.totalPoints} pts</span>
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                          </>
-                        );
-                      })()}
-                    </>
-                  ) : null}
-
-                  {selectedGroupContestId && isLeaderboardEntryLoading && leaderboardEntryContestId === selectedGroupContestId ? (
-                    <p className="muted">Loading selected entry...</p>
-                  ) : null}
-                  {selectedGroupContestId && selectedLeaderboardEntry && leaderboardEntryContestId === selectedGroupContestId ? (
-                    <div className="card">
-                      <div className="row between gap">
-                        <h3>{selectedLeaderboardEntry.entry.displayName}'s Entry</h3>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => {
-                            setSelectedLeaderboardEntry(null);
-                            setLeaderboardEntryContestId('');
-                          }}
-                        >
-                          Close
-                        </button>
-                      </div>
-                      <p className="muted">{selectedLeaderboardEntry.entry.totalPoints} pts</p>
-                      {selectedLeaderboardEntry.contestType === 'PICKEM_NFL' || selectedLeaderboardEntry.contestType === 'PICKEM_NBA' || selectedLeaderboardEntry.contestType === 'PICKEM_NHL' ? (
-                        <ul className="list">
-                          {(selectedLeaderboardEntry.picks as ParticipantEntryPickemPick[]).map((pick) => (
-                            <li key={pick.gameId}>
-                              <span>{pick.awayTeam} at {pick.homeTeam}</span>
-                              <span>
-                                <strong>{pick.pickedWinner}</strong>
-                                {' · '}
-                                {formatPickResult(pick.isCorrect)}
-                                {' · '}
-                                {pick.pointsAwarded} pts
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <ul className="list">
-                          {(selectedLeaderboardEntry.picks as ParticipantEntryBracketPick[]).map((pick) => (
-                            <li key={pick.gameSlot}>
-                              <span>{pick.gameSlot}</span>
-                              <span>
-                                <strong>{pick.pickedTeam}</strong>
-                                {' · '}
-                                {formatPickResult(pick.isCorrect)}
-                                {' · '}
-                                {pick.pointsAwarded} pts
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
+                  {popularPublicGroups.length > 0 ? (
+                    <ul className="list">
+                      {popularPublicGroups.map((group) => (
+                        <li key={group.id}>
+                          <strong>{group.name}</strong>
+                          <span>{group.memberCount} member{group.memberCount === 1 ? '' : 's'}</span>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => void onJoinPopularGroup(group.contestId, group.id)}
+                            disabled={group.isMember}
+                          >
+                            {group.isMember ? 'Joined' : 'Join'}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                 </>
               )}
+            </section>
+          ) : activeTopPage === 'group-detail' ? (
+            <section className="card lift" id="group-detail-page">
+              <button
+                type="button"
+                className="secondary backLink"
+                onClick={() => { setActiveTopPage('groups'); setTimeout(() => scrollToSection('groups-page'), 0); }}
+              >
+                ← Groups
+              </button>
+              <h2>{groups.find((group) => group.id === selectedGroupId)?.name ?? 'Group'}</h2>
+              {(() => {
+                const activeGroup = groups.find((group) => group.id === selectedGroupId);
+                return activeGroup ? (
+                  <p className="muted">{activeGroup.visibility} · {activeGroup.role}</p>
+                ) : null;
+              })()}
+
+              {isGroupLeaderboardLoading ? <p className="muted">Loading group leaderboard...</p> : null}
+              {!isGroupLeaderboardLoading && selectedGroupId && leaderboardRows.length === 0 ? (
+                <p className="muted">No entries yet in this group.</p>
+              ) : null}
+              {leaderboardRows.length > 0 ? (
+                <>
+                  {(() => {
+                    const contestRowsForPercentile = selectedGroupContestId ? (contestLeaderboards[selectedGroupContestId] ?? []) : [];
+                    return (
+                      <>
+                  <div className="leaderboardHeader">
+                    <span>Rank</span>
+                    <span>User name</span>
+                    <span className="leaderboardHeaderMeta"><span>Percentile</span><span>Points</span></span>
+                  </div>
+                  <ol className="list leaderboardList">
+                  {leaderboardRows.map((row, index) => {
+                    const rank = rankFromPoints(leaderboardRows, index);
+                    const overallIndex = contestRowsForPercentile.findIndex(
+                      (contestRow) => contestRow.userId.trim().toLowerCase() === row.userId.trim().toLowerCase()
+                    );
+                    const overallRank = rankForUserByPoints(contestRowsForPercentile, row.userId);
+                    const percentile = overallRank ? percentileFromRank(contestRowsForPercentile.length, overallRank) : 0;
+                    const overallRow = overallIndex >= 0 ? contestRowsForPercentile[overallIndex] : null;
+                    const isTopOne = overallRow ? isTopOnePercentEntry(contestRowsForPercentile, overallRow) : false;
+                    return (
+                      <li key={row.userId} className="leaderboardRow">
+                        <span className="leaderboardRank">{rank}</span>
+                        <div className="leaderboardEntryBody">
+                          <div className="leaderboardNameCell">
+                            <button
+                              type="button"
+                              className="contestNameLink"
+                              onClick={() => {
+                                if (!selectedGroupContestId) return;
+                                onLeaderboardNameClick(selectedGroupContestId, row.userId);
+                              }}
+                            >
+                              {row.displayName}
+                              {isTopOne ? <span className="topOneBadge">Top 1%</span> : null}
+                            </button>
+                            <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
+                          </div>
+                          <div className="leaderboardMeta">
+                            <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
+                            <span className="leaderboardPoints">{row.totalPoints} pts</span>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+                      </>
+                    );
+                  })()}
+                </>
+              ) : null}
+
+              {selectedGroupContestId && isLeaderboardEntryLoading && leaderboardEntryContestId === selectedGroupContestId ? (
+                <p className="muted">Loading selected entry...</p>
+              ) : null}
+              {selectedGroupContestId && selectedLeaderboardEntry && leaderboardEntryContestId === selectedGroupContestId ? (
+                <div className="card">
+                  <div className="row between gap">
+                    <h3>{selectedLeaderboardEntry.entry.displayName}'s Entry</h3>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        setSelectedLeaderboardEntry(null);
+                        setLeaderboardEntryContestId('');
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <p className="muted">{selectedLeaderboardEntry.entry.totalPoints} pts</p>
+                  {selectedLeaderboardEntry.contestType === 'PICKEM_NFL' || selectedLeaderboardEntry.contestType === 'PICKEM_NBA' || selectedLeaderboardEntry.contestType === 'PICKEM_NHL' ? (
+                    <ul className="list">
+                      {(selectedLeaderboardEntry.picks as ParticipantEntryPickemPick[]).map((pick) => (
+                        <li key={pick.gameId}>
+                          <span>{pick.awayTeam} at {pick.homeTeam}</span>
+                          <span>
+                            <strong>{pick.pickedWinner}</strong>
+                            {' · '}
+                            {formatPickResult(pick.isCorrect)}
+                            {' · '}
+                            {pick.pointsAwarded} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <ul className="list">
+                      {(selectedLeaderboardEntry.picks as ParticipantEntryBracketPick[]).map((pick) => (
+                        <li key={pick.gameSlot}>
+                          <span>{pick.gameSlot}</span>
+                          <span>
+                            <strong>{pick.pickedTeam}</strong>
+                            {' · '}
+                            {formatPickResult(pick.isCorrect)}
+                            {' · '}
+                            {pick.pointsAwarded} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
             </section>
                     ) : activeTopPage === 'user-stats' ? (
             <section className="card lift" id="user-stats-page">
@@ -3419,8 +3438,8 @@ export default function App() {
       )}
 
       <footer className="statusBar">
-        <span>{status}</span>
-        {error ? <span className="error">{error}</span> : null}
+        <span key={status} className="statusMessage">{status}</span>
+        {error ? <span key={error} className="error statusMessage">{error}</span> : null}
       </footer>
     </div>
   );

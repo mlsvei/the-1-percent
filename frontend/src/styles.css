@@ -276,6 +276,20 @@ button.secondary:hover {
   filter: none;
 }
 
+button.backLink {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-bottom: 14px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+button.backLink:hover {
+  background: none;
+  color: var(--ink);
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -392,6 +406,21 @@ td {
 
 .error {
   color: #ffb6b6;
+}
+
+.statusMessage {
+  animation: statusPop 320ms ease;
+}
+
+@keyframes statusPop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes rise {
