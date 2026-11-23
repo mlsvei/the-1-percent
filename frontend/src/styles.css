@@ -2560,6 +2560,17 @@ td {
   opacity: 1;
 }
 
+.nflPickTeamTile.selected.winner {
+  background: linear-gradient(115deg, #2f9160, #1b5c3a);
+  border-color: var(--good);
+  color: #eafff2;
+  box-shadow: none;
+}
+
+.nflPickTeamTile.selected.winner .saveCheck {
+  color: #eafff2;
+}
+
 .nflPickTeamLogo {
   width: 44px;
   height: 44px;
