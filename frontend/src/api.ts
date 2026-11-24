@@ -95,8 +95,9 @@ export type GroupPicksGridGame = {
 export type GroupPicksGridRow = {
   userId: string;
   displayName: string;
-  totalPoints: number;
+  weekPoints: number;
   picks: Record<string, { pickedWinner: string; isCorrect: boolean | null }>;
+  tiebreaker: { prompt: string; answer: string; numericGuess: number | null } | null;
 };
 
 export type GroupPicksGrid = {

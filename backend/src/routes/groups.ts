@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db.js';
 import { requireUser } from '../middleware/require-user.js';
+import { effectiveWeekFor } from './entries.js';
 import type { AuthenticatedRequest } from '../types.js';
 
 export const groupsRouter = Router();
@@ -343,11 +344,23 @@ groupsRouter.get('/groups/:groupId/picks-grid', requireUser, async (req: Authent
     return;
   }
 
-  const weeksResult = await query<{ week: number }>(
-    'select distinct week from games where contest_id = $1 and week is not null order by week',
+  const allGamesResult = await query<{
+    id: string;
+    contestId: string;
+    week: number | null;
+    winner: string | null;
+    status: string;
+  }>(
+    'select id, contest_id as "contestId", week, winner, status from games where contest_id = $1',
     [contestId]
   );
-  const weeks = weeksResult.rows.map((row) => row.week);
+  const weeks = Array.from(
+    new Set(allGamesResult.rows.map((row) => row.week).filter((w): w is number => w != null))
+  ).sort((a, b) => a - b);
+
+  if (week == null) {
+    week = effectiveWeekFor(allGamesResult.rows);
+  }
 
   const gamesResult = await query<{
     id: string;
@@ -368,40 +381,68 @@ groupsRouter.get('/groups/:groupId/picks-grid', requireUser, async (req: Authent
   const gameIds = games.map((game) => game.id);
 
   const entriesResult = await query<{
+    entryId: string;
     userId: string;
     displayName: string;
-    totalPoints: number;
     gameId: string | null;
     pickedWinner: string | null;
     isCorrect: boolean | null;
+    pointsAwarded: number | null;
   }>(
-    `select e.user_id as "userId", u.display_name as "displayName", e.total_points as "totalPoints",
-            p.game_id as "gameId", p.picked_winner as "pickedWinner", p.is_correct as "isCorrect"
+    `select e.id as "entryId", e.user_id as "userId", u.display_name as "displayName",
+            p.game_id as "gameId", p.picked_winner as "pickedWinner", p.is_correct as "isCorrect", p.points_awarded as "pointsAwarded"
        from entries e
        join users u on u.id = e.user_id
        join group_members gm on gm.user_id = e.user_id
        left join picks p on p.entry_id = e.id and p.game_id = any($1::uuid[])
-      where gm.group_id = $2 and e.contest_id = $3
-      order by e.total_points desc, u.display_name asc`,
+      where gm.group_id = $2 and e.contest_id = $3`,
     [gameIds, req.params.groupId, contestId]
   );
 
   const rowsByUser = new Map<string, {
     userId: string;
+    entryId: string;
     displayName: string;
-    totalPoints: number;
+    weekPoints: number;
     picks: Record<string, { pickedWinner: string; isCorrect: boolean | null }>;
   }>();
   for (const row of entriesResult.rows) {
     let entry = rowsByUser.get(row.userId);
     if (!entry) {
-      entry = { userId: row.userId, displayName: row.displayName, totalPoints: row.totalPoints, picks: {} };
+      entry = { userId: row.userId, entryId: row.entryId, displayName: row.displayName, weekPoints: 0, picks: {} };
       rowsByUser.set(row.userId, entry);
     }
     if (row.gameId && row.pickedWinner) {
       entry.picks[row.gameId] = { pickedWinner: row.pickedWinner, isCorrect: row.isCorrect };
+      entry.weekPoints += row.pointsAwarded ?? 0;
     }
   }
+
+  const entryIds = Array.from(rowsByUser.values()).map((row) => row.entryId);
+  const tiebreakersResult = entryIds.length
+    ? await query<{
+        entryId: string;
+        prompt: string;
+        answer: string;
+        numericGuess: number | null;
+      }>(
+        `select entry_id as "entryId", prompt, answer, numeric_guess as "numericGuess"
+           from entry_tiebreakers
+          where week = $1 and entry_id = any($2::uuid[])`,
+        [week ?? 0, entryIds]
+      )
+    : { rows: [] as Array<{ entryId: string; prompt: string; answer: string; numericGuess: number | null }> };
+  const tiebreakersByEntryId = new Map(tiebreakersResult.rows.map((row) => [row.entryId, row]));
+
+  const rows = Array.from(rowsByUser.values())
+    .map((row) => ({
+      userId: row.userId,
+      displayName: row.displayName,
+      weekPoints: row.weekPoints,
+      picks: row.picks,
+      tiebreaker: tiebreakersByEntryId.get(row.entryId) ?? null
+    }))
+    .sort((a, b) => b.weekPoints - a.weekPoints || a.displayName.localeCompare(b.displayName));
 
   res.json({
     groupId: req.params.groupId,
@@ -409,6 +450,6 @@ groupsRouter.get('/groups/:groupId/picks-grid', requireUser, async (req: Authent
     week,
     weeks,
     games,
-    rows: Array.from(rowsByUser.values())
+    rows
   });
 });

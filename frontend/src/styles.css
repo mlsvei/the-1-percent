@@ -1158,6 +1158,14 @@ td {
   background: color-mix(in srgb, var(--panel), var(--ink) 4%);
 }
 
+.groupPicksTiebreakerCol {
+  text-align: center;
+  border-left: 1px solid var(--line);
+  font-size: 0.78rem;
+  max-width: 140px;
+  white-space: normal;
+}
+
 .topOneBadge {
   margin-left: 18px;
   padding: 2px 8px;

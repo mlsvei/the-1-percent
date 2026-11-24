@@ -2007,20 +2007,9 @@ export default function App() {
     setError('');
     setIsGroupPicksLoading(true);
     try {
-      let week = weekOverride ?? null;
-      if (week == null) {
-        const discovery = await api.groupPicksGrid(authToken, groupId, contestId);
-        if (discovery.weeks.length > 0) {
-          week = discovery.weeks[discovery.weeks.length - 1];
-        } else {
-          setGroupPicksGrid(discovery);
-          setGroupPicksWeek(null);
-          return;
-        }
-      }
-      const data = await api.groupPicksGrid(authToken, groupId, contestId, week);
+      const data = await api.groupPicksGrid(authToken, groupId, contestId, weekOverride ?? null);
       setGroupPicksGrid(data);
-      setGroupPicksWeek(week);
+      setGroupPicksWeek(data.week);
     } catch (err) {
       handleAppError(err);
     } finally {
@@ -2626,16 +2615,21 @@ export default function App() {
                                 </th>
                               );
                             })}
+                            {groupPicksGrid.rows.some((row) => row.tiebreaker) ? (
+                              <th className="groupPicksTiebreakerCol">
+                                {groupPicksGrid.rows.find((row) => row.tiebreaker)?.tiebreaker?.prompt ?? 'Tiebreaker'}
+                              </th>
+                            ) : null}
                           </tr>
                         </thead>
                         <tbody>
                           {groupPicksGrid.rows.map((row, index) => (
                             <tr key={row.userId} className={row.userId === userId ? 'groupPicksOwnRow' : undefined}>
                               <td className="groupPicksEntryCol">
-                                <span className="leaderboardRank">{rankFromPoints(groupPicksGrid.rows, index)}</span>{' '}
+                                <span className="leaderboardRank">{rankFromPoints(groupPicksGrid.rows.map((r) => ({ totalPoints: r.weekPoints })), index)}</span>{' '}
                                 <button type="button" className="contestNameLink" onClick={() => void onOpenUserStats(row.userId)}>{row.displayName}</button>
                               </td>
-                              <td>{row.totalPoints}</td>
+                              <td>{row.weekPoints}</td>
                               {groupPicksGrid.games.map((game) => {
                                 const pick = row.picks[game.id];
                                 if (!pick) return <td key={game.id} className="groupPicksCell muted">—</td>;
@@ -2647,6 +2641,9 @@ export default function App() {
                                   </td>
                                 );
                               })}
+                              {groupPicksGrid.rows.some((r) => r.tiebreaker) ? (
+                                <td className="groupPicksTiebreakerCol muted">{row.tiebreaker?.answer ?? '—'}</td>
+                              ) : null}
                             </tr>
                           ))}
                         </tbody>

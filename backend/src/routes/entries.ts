@@ -53,13 +53,13 @@ async function ensureEntryTiebreakersTable() {
   tiebreakersTableEnsured = true;
 }
 
-function isFinalGameStatus(status: string): boolean {
+export function isFinalGameStatus(status: string): boolean {
   return /final|complete/i.test(status);
 }
 
-type GameRow = { id: string; contestId: string; week: number | null; winner: string | null; status: string };
+export type GameRow = { id: string; contestId: string; week: number | null; winner: string | null; status: string };
 
-function effectiveWeekFor(games: GameRow[]): number | null {
+export function effectiveWeekFor(games: GameRow[]): number | null {
   const weeks = games.map((g) => g.week).filter((w): w is number => w != null);
   if (weeks.length === 0) return null;
 
