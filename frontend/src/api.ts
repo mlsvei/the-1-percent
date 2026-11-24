@@ -83,6 +83,31 @@ export type Group = {
   role: string;
 };
 
+export type GroupPicksGridGame = {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  startTime: string;
+  status: string;
+  week: number | null;
+};
+
+export type GroupPicksGridRow = {
+  userId: string;
+  displayName: string;
+  totalPoints: number;
+  picks: Record<string, { pickedWinner: string; isCorrect: boolean | null }>;
+};
+
+export type GroupPicksGrid = {
+  groupId: string;
+  contestId: string;
+  week: number | null;
+  weeks: number[];
+  games: GroupPicksGridGame[];
+  rows: GroupPicksGridRow[];
+};
+
 export type PublicGroupRow = {
   id: string;
   contestId: string;
@@ -412,6 +437,15 @@ export const api = {
   async groupLeaderboard(userId: string, groupId: string, contestId: string) {
     return request<{ leaderboard: Array<{ userId: string; displayName: string; totalPoints: number }> }>(
       `/groups/${groupId}/leaderboard?contestId=${encodeURIComponent(contestId)}`,
+      {},
+      userId
+    );
+  },
+
+  async groupPicksGrid(userId: string, groupId: string, contestId: string, week?: number | null) {
+    const weekParam = typeof week === 'number' ? `&week=${encodeURIComponent(String(week))}` : '';
+    return request<GroupPicksGrid>(
+      `/groups/${groupId}/picks-grid?contestId=${encodeURIComponent(contestId)}${weekParam}`,
       {},
       userId
     );

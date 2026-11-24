@@ -301,3 +301,114 @@ groupsRouter.get('/groups/:groupId/leaderboard', requireUser, async (req: Authen
 
   res.json({ groupId: req.params.groupId, contestId, leaderboard: rows.rows });
 });
+
+groupsRouter.get('/groups/:groupId/picks-grid', requireUser, async (req: AuthenticatedRequest, res) => {
+  const groupIdValidation = uuidSchema.safeParse(req.params.groupId);
+  if (!groupIdValidation.success) {
+    res.status(400).json({ error: 'groupId must be a UUID' });
+    return;
+  }
+
+  const contestId = req.query.contestId;
+  if (typeof contestId !== 'string') {
+    res.status(400).json({ error: 'contestId query parameter is required' });
+    return;
+  }
+
+  const contestIdValidation = uuidSchema.safeParse(contestId);
+  if (!contestIdValidation.success) {
+    res.status(400).json({ error: 'contestId must be a UUID' });
+    return;
+  }
+
+  const weekParam = req.query.week;
+  let week: number | null = null;
+  if (typeof weekParam === 'string' && weekParam.trim() !== '') {
+    const parsedWeek = Number.parseInt(weekParam, 10);
+    if (Number.isNaN(parsedWeek)) {
+      res.status(400).json({ error: 'week must be a number' });
+      return;
+    }
+    week = parsedWeek;
+  }
+
+  const contestResult = await query<{ type: string }>('select type from contests where id = $1', [contestId]);
+  const contest = contestResult.rows[0];
+  if (!contest) {
+    res.status(404).json({ error: 'Contest not found' });
+    return;
+  }
+  if (!contest.type.startsWith('PICKEM_')) {
+    res.status(400).json({ error: 'Pick grids are only available for pick’em contests' });
+    return;
+  }
+
+  const weeksResult = await query<{ week: number }>(
+    'select distinct week from games where contest_id = $1 and week is not null order by week',
+    [contestId]
+  );
+  const weeks = weeksResult.rows.map((row) => row.week);
+
+  const gamesResult = await query<{
+    id: string;
+    homeTeam: string;
+    awayTeam: string;
+    startTime: string;
+    status: string;
+    week: number | null;
+  }>(
+    `select id, home_team as "homeTeam", away_team as "awayTeam", start_time as "startTime", status, week
+       from games
+      where contest_id = $1
+        and ($2::smallint is null or week = $2::smallint)
+      order by start_time asc`,
+    [contestId, week]
+  );
+  const games = gamesResult.rows;
+  const gameIds = games.map((game) => game.id);
+
+  const entriesResult = await query<{
+    userId: string;
+    displayName: string;
+    totalPoints: number;
+    gameId: string | null;
+    pickedWinner: string | null;
+    isCorrect: boolean | null;
+  }>(
+    `select e.user_id as "userId", u.display_name as "displayName", e.total_points as "totalPoints",
+            p.game_id as "gameId", p.picked_winner as "pickedWinner", p.is_correct as "isCorrect"
+       from entries e
+       join users u on u.id = e.user_id
+       join group_members gm on gm.user_id = e.user_id
+       left join picks p on p.entry_id = e.id and p.game_id = any($1::uuid[])
+      where gm.group_id = $2 and e.contest_id = $3
+      order by e.total_points desc, u.display_name asc`,
+    [gameIds, req.params.groupId, contestId]
+  );
+
+  const rowsByUser = new Map<string, {
+    userId: string;
+    displayName: string;
+    totalPoints: number;
+    picks: Record<string, { pickedWinner: string; isCorrect: boolean | null }>;
+  }>();
+  for (const row of entriesResult.rows) {
+    let entry = rowsByUser.get(row.userId);
+    if (!entry) {
+      entry = { userId: row.userId, displayName: row.displayName, totalPoints: row.totalPoints, picks: {} };
+      rowsByUser.set(row.userId, entry);
+    }
+    if (row.gameId && row.pickedWinner) {
+      entry.picks[row.gameId] = { pickedWinner: row.pickedWinner, isCorrect: row.isCorrect };
+    }
+  }
+
+  res.json({
+    groupId: req.params.groupId,
+    contestId,
+    week,
+    weeks,
+    games,
+    rows: Array.from(rowsByUser.values())
+  });
+});

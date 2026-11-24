@@ -6,6 +6,7 @@ import {
   Entry,
   Game,
   Group,
+  GroupPicksGrid,
   PublicGroupRow,
   PrivateGroupNameRow,
   LeaderboardRow,
@@ -55,6 +56,13 @@ type BracketDraftRow = {
 
 type AppPage = 'home' | 'entries' | 'contest' | 'leaderboards' | 'groups' | 'group-detail' | 'user-stats' | 'profile';
 type StatsReturnPage = Exclude<AppPage, 'user-stats'>;
+
+function teamLogoUrlForContestType(contestType: string, teamName: string): string | null {
+  if (contestType === 'PICKEM_NFL') return nflLogoUrl(teamName);
+  if (contestType === 'PICKEM_NBA') return nbaLogoUrl(teamName);
+  if (contestType === 'PICKEM_NHL') return nhlLogoUrl(teamName);
+  return null;
+}
 
 function NavIcon({ d }: { d: string }) {
   return (
@@ -308,6 +316,10 @@ export default function App() {
   const [selectedGroupContestId, setSelectedGroupContestId] = useState('');
   const [leaderboardRows, setLeaderboardRows] = useState<Array<{ userId: string; displayName: string; totalPoints: number }>>([]);
   const [isGroupLeaderboardLoading, setIsGroupLeaderboardLoading] = useState(false);
+  const [groupViewMode, setGroupViewMode] = useState<'results' | 'picks'>('results');
+  const [groupPicksGrid, setGroupPicksGrid] = useState<GroupPicksGrid | null>(null);
+  const [groupPicksWeek, setGroupPicksWeek] = useState<number | null>(null);
+  const [isGroupPicksLoading, setIsGroupPicksLoading] = useState(false);
   const [contestLeaderboards, setContestLeaderboards] = useState<Record<string, LeaderboardRow[]>>({});
   const [isContestLeaderboardsLoading, setIsContestLeaderboardsLoading] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
@@ -337,6 +349,7 @@ export default function App() {
     () => contests.find((contest) => contest.id === selectedGroupContestId),
     [contests, selectedGroupContestId]
   );
+  const groupPicksSupported = Boolean(selectedGroupContest && selectedGroupContest.type !== 'BRACKET_NCAAM');
 
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.contestId === selectedContestId),
@@ -1980,10 +1993,39 @@ export default function App() {
     setLeaderboardRows([]);
     setSelectedLeaderboardEntry(null);
     setLeaderboardEntryContestId('');
+    setGroupViewMode('results');
+    setGroupPicksGrid(null);
+    setGroupPicksWeek(null);
     setActiveTopPage('group-detail');
     setTimeout(() => scrollToSection('group-detail-page'), 0);
     await loadLeaderboard(groupId, contestId);
     if (statusMessage) setStatus(statusMessage);
+  }
+
+  async function loadGroupPicksGrid(groupId: string, contestId: string, weekOverride?: number | null) {
+    if (!authToken || !groupId || !contestId) return;
+    setError('');
+    setIsGroupPicksLoading(true);
+    try {
+      let week = weekOverride ?? null;
+      if (week == null) {
+        const discovery = await api.groupPicksGrid(authToken, groupId, contestId);
+        if (discovery.weeks.length > 0) {
+          week = discovery.weeks[discovery.weeks.length - 1];
+        } else {
+          setGroupPicksGrid(discovery);
+          setGroupPicksWeek(null);
+          return;
+        }
+      }
+      const data = await api.groupPicksGrid(authToken, groupId, contestId, week);
+      setGroupPicksGrid(data);
+      setGroupPicksWeek(week);
+    } catch (err) {
+      handleAppError(err);
+    } finally {
+      setIsGroupPicksLoading(false);
+    }
   }
 
   async function onOpenUserStats(targetUserId: string) {
@@ -2402,116 +2444,217 @@ export default function App() {
                 ) : null;
               })()}
 
-              {isGroupLeaderboardLoading ? <p className="muted">Loading group leaderboard...</p> : null}
-              {!isGroupLeaderboardLoading && selectedGroupId && leaderboardRows.length === 0 ? (
-                <p className="muted">No entries yet in this group.</p>
-              ) : null}
-              {leaderboardRows.length > 0 ? (
-                <>
-                  {(() => {
-                    const contestRowsForPercentile = selectedGroupContestId ? (contestLeaderboards[selectedGroupContestId] ?? []) : [];
-                    return (
-                      <>
-                  <div className="leaderboardHeader">
-                    <span>Rank</span>
-                    <span>User name</span>
-                    <span className="leaderboardHeaderMeta"><span>Percentile</span><span>Points</span></span>
-                  </div>
-                  <ol className="list leaderboardList">
-                  {leaderboardRows.map((row, index) => {
-                    const rank = rankFromPoints(leaderboardRows, index);
-                    const overallIndex = contestRowsForPercentile.findIndex(
-                      (contestRow) => contestRow.userId.trim().toLowerCase() === row.userId.trim().toLowerCase()
-                    );
-                    const overallRank = rankForUserByPoints(contestRowsForPercentile, row.userId);
-                    const percentile = overallRank ? percentileFromRank(contestRowsForPercentile.length, overallRank) : 0;
-                    const overallRow = overallIndex >= 0 ? contestRowsForPercentile[overallIndex] : null;
-                    const isTopOne = overallRow ? isTopOnePercentEntry(contestRowsForPercentile, overallRow) : false;
-                    return (
-                      <li key={row.userId} className="leaderboardRow">
-                        <span className="leaderboardRank">{rank}</span>
-                        <div className="leaderboardEntryBody">
-                          <div className="leaderboardNameCell">
-                            <button
-                              type="button"
-                              className="contestNameLink"
-                              onClick={() => {
-                                if (!selectedGroupContestId) return;
-                                onLeaderboardNameClick(selectedGroupContestId, row.userId);
-                              }}
-                            >
-                              {row.displayName}
-                              {isTopOne ? <span className="topOneBadge">Top 1%</span> : null}
-                            </button>
-                            <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
-                          </div>
-                          <div className="leaderboardMeta">
-                            <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
-                            <span className="leaderboardPoints">{row.totalPoints} pts</span>
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-                      </>
-                    );
-                  })()}
-                </>
-              ) : null}
-
-              {selectedGroupContestId && isLeaderboardEntryLoading && leaderboardEntryContestId === selectedGroupContestId ? (
-                <p className="muted">Loading selected entry...</p>
-              ) : null}
-              {selectedGroupContestId && selectedLeaderboardEntry && leaderboardEntryContestId === selectedGroupContestId ? (
-                <div className="card">
-                  <div className="row between gap">
-                    <h3>{selectedLeaderboardEntry.entry.displayName}'s Entry</h3>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => {
-                        setSelectedLeaderboardEntry(null);
-                        setLeaderboardEntryContestId('');
-                      }}
-                    >
-                      Close
-                    </button>
-                  </div>
-                  <p className="muted">{selectedLeaderboardEntry.entry.totalPoints} pts</p>
-                  {selectedLeaderboardEntry.contestType === 'PICKEM_NFL' || selectedLeaderboardEntry.contestType === 'PICKEM_NBA' || selectedLeaderboardEntry.contestType === 'PICKEM_NHL' ? (
-                    <ul className="list">
-                      {(selectedLeaderboardEntry.picks as ParticipantEntryPickemPick[]).map((pick) => (
-                        <li key={pick.gameId}>
-                          <span>{pick.awayTeam} at {pick.homeTeam}</span>
-                          <span>
-                            <strong>{pick.pickedWinner}</strong>
-                            {' · '}
-                            {formatPickResult(pick.isCorrect)}
-                            {' · '}
-                            {pick.pointsAwarded} pts
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <ul className="list">
-                      {(selectedLeaderboardEntry.picks as ParticipantEntryBracketPick[]).map((pick) => (
-                        <li key={pick.gameSlot}>
-                          <span>{pick.gameSlot}</span>
-                          <span>
-                            <strong>{pick.pickedTeam}</strong>
-                            {' · '}
-                            {formatPickResult(pick.isCorrect)}
-                            {' · '}
-                            {pick.pointsAwarded} pts
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+              {groupPicksSupported ? (
+                <div className="row gap groupViewToggle">
+                  <button
+                    type="button"
+                    className={groupViewMode === 'results' ? 'ctaBtn' : 'secondary'}
+                    onClick={() => setGroupViewMode('results')}
+                  >
+                    Group Results
+                  </button>
+                  <button
+                    type="button"
+                    className={groupViewMode === 'picks' ? 'ctaBtn' : 'secondary'}
+                    onClick={() => {
+                      setGroupViewMode('picks');
+                      if (!groupPicksGrid && selectedGroupId && selectedGroupContestId) {
+                        void loadGroupPicksGrid(selectedGroupId, selectedGroupContestId);
+                      }
+                    }}
+                  >
+                    Group Picks
+                  </button>
                 </div>
               ) : null}
+
+              {groupViewMode === 'results' ? (
+                <>
+                  {isGroupLeaderboardLoading ? <p className="muted">Loading group leaderboard...</p> : null}
+                  {!isGroupLeaderboardLoading && selectedGroupId && leaderboardRows.length === 0 ? (
+                    <p className="muted">No entries yet in this group.</p>
+                  ) : null}
+                  {leaderboardRows.length > 0 ? (
+                    <>
+                      {(() => {
+                        const contestRowsForPercentile = selectedGroupContestId ? (contestLeaderboards[selectedGroupContestId] ?? []) : [];
+                        return (
+                          <>
+                      <div className="leaderboardHeader">
+                        <span>Rank</span>
+                        <span>User name</span>
+                        <span className="leaderboardHeaderMeta"><span>Percentile</span><span>Points</span></span>
+                      </div>
+                      <ol className="list leaderboardList">
+                      {leaderboardRows.map((row, index) => {
+                        const rank = rankFromPoints(leaderboardRows, index);
+                        const overallIndex = contestRowsForPercentile.findIndex(
+                          (contestRow) => contestRow.userId.trim().toLowerCase() === row.userId.trim().toLowerCase()
+                        );
+                        const overallRank = rankForUserByPoints(contestRowsForPercentile, row.userId);
+                        const percentile = overallRank ? percentileFromRank(contestRowsForPercentile.length, overallRank) : 0;
+                        const overallRow = overallIndex >= 0 ? contestRowsForPercentile[overallIndex] : null;
+                        const isTopOne = overallRow ? isTopOnePercentEntry(contestRowsForPercentile, overallRow) : false;
+                        return (
+                          <li key={row.userId} className="leaderboardRow">
+                            <span className="leaderboardRank">{rank}</span>
+                            <div className="leaderboardEntryBody">
+                              <div className="leaderboardNameCell">
+                                <button
+                                  type="button"
+                                  className="contestNameLink"
+                                  onClick={() => {
+                                    if (!selectedGroupContestId) return;
+                                    onLeaderboardNameClick(selectedGroupContestId, row.userId);
+                                  }}
+                                >
+                                  {row.displayName}
+                                  {isTopOne ? <span className="topOneBadge">Top 1%</span> : null}
+                                </button>
+                                <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
+                              </div>
+                              <div className="leaderboardMeta">
+                                <span className="leaderboardPercentile">{percentile.toFixed(2)}%</span>
+                                <span className="leaderboardPoints">{row.totalPoints} pts</span>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : null}
+
+                  {selectedGroupContestId && isLeaderboardEntryLoading && leaderboardEntryContestId === selectedGroupContestId ? (
+                    <p className="muted">Loading selected entry...</p>
+                  ) : null}
+                  {selectedGroupContestId && selectedLeaderboardEntry && leaderboardEntryContestId === selectedGroupContestId ? (
+                    <div className="card">
+                      <div className="row between gap">
+                        <h3>{selectedLeaderboardEntry.entry.displayName}'s Entry</h3>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => {
+                            setSelectedLeaderboardEntry(null);
+                            setLeaderboardEntryContestId('');
+                          }}
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <p className="muted">{selectedLeaderboardEntry.entry.totalPoints} pts</p>
+                      {selectedLeaderboardEntry.contestType === 'PICKEM_NFL' || selectedLeaderboardEntry.contestType === 'PICKEM_NBA' || selectedLeaderboardEntry.contestType === 'PICKEM_NHL' ? (
+                        <ul className="list">
+                          {(selectedLeaderboardEntry.picks as ParticipantEntryPickemPick[]).map((pick) => (
+                            <li key={pick.gameId}>
+                              <span>{pick.awayTeam} at {pick.homeTeam}</span>
+                              <span>
+                                <strong>{pick.pickedWinner}</strong>
+                                {' · '}
+                                {formatPickResult(pick.isCorrect)}
+                                {' · '}
+                                {pick.pointsAwarded} pts
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <ul className="list">
+                          {(selectedLeaderboardEntry.picks as ParticipantEntryBracketPick[]).map((pick) => (
+                            <li key={pick.gameSlot}>
+                              <span>{pick.gameSlot}</span>
+                              <span>
+                                <strong>{pick.pickedTeam}</strong>
+                                {' · '}
+                                {formatPickResult(pick.isCorrect)}
+                                {' · '}
+                                {pick.pointsAwarded} pts
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {groupPicksGrid && groupPicksGrid.weeks.length > 0 ? (
+                    <div className="row gap groupPicksWeekRow">
+                      <p className="muted">Week</p>
+                      <select
+                        value={groupPicksWeek ?? ''}
+                        onChange={(e) => {
+                          const nextWeek = Number(e.target.value);
+                          if (selectedGroupId && selectedGroupContestId) {
+                            void loadGroupPicksGrid(selectedGroupId, selectedGroupContestId, nextWeek);
+                          }
+                        }}
+                      >
+                        {groupPicksGrid.weeks.map((week) => (
+                          <option key={week} value={week}>Week {week}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+
+                  {isGroupPicksLoading ? <p className="muted">Loading group picks...</p> : null}
+                  {!isGroupPicksLoading && groupPicksGrid && groupPicksGrid.games.length === 0 ? (
+                    <p className="muted">No games to show yet.</p>
+                  ) : null}
+                  {!isGroupPicksLoading && groupPicksGrid && groupPicksGrid.games.length > 0 ? (
+                    <div className="groupPicksGridWrap">
+                      <table className="groupPicksTable">
+                        <thead>
+                          <tr>
+                            <th className="groupPicksEntryCol">Group Entries</th>
+                            <th>Pts</th>
+                            {groupPicksGrid.games.map((game) => {
+                              const awayLogo = selectedGroupContest ? teamLogoUrlForContestType(selectedGroupContest.type, game.awayTeam) : null;
+                              const homeLogo = selectedGroupContest ? teamLogoUrlForContestType(selectedGroupContest.type, game.homeTeam) : null;
+                              return (
+                                <th key={game.id} className="groupPicksMatchupCol">
+                                  <div className="groupPicksMatchup">
+                                    {awayLogo ? <img src={awayLogo} alt={game.awayTeam} className="groupPicksLogo" /> : <span>{game.awayTeam}</span>}
+                                    <span className="groupPicksAt">@</span>
+                                    {homeLogo ? <img src={homeLogo} alt={game.homeTeam} className="groupPicksLogo" /> : <span>{game.homeTeam}</span>}
+                                  </div>
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {groupPicksGrid.rows.map((row, index) => (
+                            <tr key={row.userId} className={row.userId === userId ? 'groupPicksOwnRow' : undefined}>
+                              <td className="groupPicksEntryCol">
+                                <span className="leaderboardRank">{rankFromPoints(groupPicksGrid.rows, index)}</span>{' '}
+                                <button type="button" className="contestNameLink" onClick={() => void onOpenUserStats(row.userId)}>{row.displayName}</button>
+                              </td>
+                              <td>{row.totalPoints}</td>
+                              {groupPicksGrid.games.map((game) => {
+                                const pick = row.picks[game.id];
+                                if (!pick) return <td key={game.id} className="groupPicksCell muted">—</td>;
+                                const logo = selectedGroupContest ? teamLogoUrlForContestType(selectedGroupContest.type, pick.pickedWinner) : null;
+                                const resultClass = pick.isCorrect === true ? 'correct' : pick.isCorrect === false ? 'incorrect' : '';
+                                return (
+                                  <td key={game.id} className={'groupPicksCell ' + resultClass}>
+                                    {logo ? <img src={logo} alt={pick.pickedWinner} className="groupPicksLogo" /> : <span>{pick.pickedWinner}</span>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+                </>
+              )}
             </section>
                     ) : activeTopPage === 'user-stats' ? (
             <section className="card lift" id="user-stats-page">
