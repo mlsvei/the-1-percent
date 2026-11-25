@@ -511,6 +511,18 @@ td {
     padding: 10px 12px;
   }
 
+  .leaderboardScrollWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -14px;
+    padding: 0 14px;
+  }
+
+  .leaderboardScrollWrap .leaderboardHeader,
+  .leaderboardScrollWrap .leaderboardList {
+    min-width: 480px;
+  }
+
   .leaderboardList .leaderboardRow {
     grid-template-columns: 24px 1fr auto;
     gap: 8px;

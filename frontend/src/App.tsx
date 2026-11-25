@@ -2469,6 +2469,7 @@ export default function App() {
                         const contestRowsForPercentile = selectedGroupContestId ? (contestLeaderboards[selectedGroupContestId] ?? []) : [];
                         return (
                           <>
+                      <div className="leaderboardScrollWrap">
                       <div className="leaderboardHeader">
                         <span>Rank</span>
                         <span>User name</span>
@@ -2498,8 +2499,15 @@ export default function App() {
                                   }}
                                 >
                                   {row.displayName}
-                                  {isTopOne ? <span className="topOneBadge">Top 1%</span> : null}
                                 </button>
+                                {isTopOne ? (
+                                  <img
+                                    src="/logo-the-1-percent.png"
+                                    alt="Top 1%"
+                                    title="Top 1% finish"
+                                    className="leaderboardTopOneLogo"
+                                  />
+                                ) : null}
                                 <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
                               </div>
                               <div className="leaderboardMeta">
@@ -2511,6 +2519,7 @@ export default function App() {
                         );
                       })}
                     </ol>
+                      </div>
                           </>
                         );
                       })()}
@@ -2775,6 +2784,7 @@ export default function App() {
                       const showRecord = contest.type !== 'BRACKET_NCAAM';
                       return (
                       <>
+                        <div className="leaderboardScrollWrap">
                         <div className="leaderboardHeader">
                           <span>Rank</span>
                           <span>User</span>
@@ -2815,6 +2825,7 @@ export default function App() {
                           );
                         })}
                         </ol>
+                        </div>
                       </>
                       );
                     })()}
