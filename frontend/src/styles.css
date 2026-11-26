@@ -2581,6 +2581,17 @@ td {
   margin-top: 8px;
 }
 
+.streakBoard {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.streakActivePick {
+  display: grid;
+  gap: 8px;
+}
+
 .pickemGameCard {
   display: grid;
   gap: 8px;

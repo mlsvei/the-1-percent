@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { query } from '../db.js';
 import { gradeContest } from '../services/grading.js';
 import { ensureGamesWeekColumn } from '../services/game-ingest.js';
+import { ensureStreakSchema } from '../services/streak.js';
 import { refreshContestStatuses } from '../services/contest-status.js';
 import { buildUpcomingSpotMatches } from '../services/cbb-spot-matcher.js';
 import { requireContestCreator } from '../middleware/require-contest-creator.js';
@@ -14,7 +15,7 @@ export const contestsRouter = Router();
 
 const createContestSchema = z.object({
   name: z.string().min(2),
-  type: z.enum(['PICKEM_NFL', 'PICKEM_NBA', 'PICKEM_NHL', 'BRACKET_NCAAM']),
+  type: z.enum(['PICKEM_NFL', 'PICKEM_NBA', 'PICKEM_NHL', 'BRACKET_NCAAM', 'STREAK']),
   season: z.number().int().min(2020),
   startsAt: z.string().datetime(),
   lockMode: z.enum(['PER_GAME', 'FULL_BRACKET', 'PER_ROUND']),
@@ -78,6 +79,10 @@ contestsRouter.post('/contests', requireUser, requireContestCreator, async (req,
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
+  }
+
+  if (parsed.data.type === 'STREAK') {
+    await ensureStreakSchema();
   }
 
   const contestId = randomUUID();
@@ -435,14 +440,40 @@ contestsRouter.get('/contests/:contestId/games', async (req, res) => {
 contestsRouter.get('/contests/:contestId/leaderboard', requireUser, async (req, res) => {
   await refreshContestStatuses(req.params.contestId);
 
-  const contestResult = await query<{ id: string; name: string; status: string }>(
-    'select id, name, status from contests where id = $1',
+  const contestResult = await query<{ id: string; name: string; type: string; status: string }>(
+    'select id, name, type, status from contests where id = $1',
     [req.params.contestId]
   );
   const contest = contestResult.rows[0];
 
   if (!contest) {
     res.status(404).json({ error: 'Contest not found' });
+    return;
+  }
+
+  if (contest.type === 'STREAK') {
+    const streakRows = await query<{
+      userId: string;
+      displayName: string;
+      currentStreak: number;
+      bestStreak: number;
+      submittedAt: string | null;
+    }>(
+      `select e.user_id as "userId", u.display_name as "displayName",
+              e.current_streak as "currentStreak", e.best_streak as "bestStreak", e.submitted_at as "submittedAt"
+       from entries e
+       join users u on u.id = e.user_id
+       where e.contest_id = $1
+       order by e.best_streak desc, e.current_streak desc, e.submitted_at asc nulls last`,
+      [req.params.contestId]
+    );
+
+    res.json({
+      contestId: req.params.contestId,
+      contestName: contest.name,
+      contestStatus: contest.status,
+      leaderboard: streakRows.rows
+    });
     return;
   }
 

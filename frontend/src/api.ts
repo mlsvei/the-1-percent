@@ -57,7 +57,7 @@ async function request<T>(path: string, options: RequestInit = {}, authToken?: s
 export type Contest = {
   id: string;
   name: string;
-  type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM';
+  type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM' | 'STREAK';
   season: number;
   startsAt: string;
   lockMode: 'PER_GAME' | 'FULL_BRACKET' | 'PER_ROUND';
@@ -81,6 +81,24 @@ export type Group = {
   visibility: 'PUBLIC' | 'PRIVATE';
   joinCode: string | null;
   role: string;
+};
+
+export type StreakPick = {
+  id: string;
+  gameId: string;
+  pickedWinner: string;
+  status: 'ACTIVE' | 'WON' | 'LOST' | 'FORFEITED';
+  createdAt: string;
+  homeTeam: string;
+  awayTeam: string;
+  startTime: string;
+};
+
+export type StreakPickState = {
+  currentStreak: number;
+  bestStreak: number;
+  activePick: StreakPick | null;
+  history: StreakPick[];
 };
 
 export type GroupPicksGridGame = {
@@ -178,6 +196,8 @@ export type LeaderboardRow = {
   submittedAt: string | null;
   wins: number;
   losses: number;
+  currentStreak?: number;
+  bestStreak?: number;
 };
 
 export type PickPercentageRow = {
@@ -352,7 +372,7 @@ export const api = {
     userId: string,
     payload: {
       name: string;
-      type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM';
+      type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM' | 'STREAK';
       season: number;
       startsAt: string;
       lockMode: 'PER_GAME' | 'FULL_BRACKET' | 'PER_ROUND';
@@ -361,7 +381,7 @@ export const api = {
       status?: 'DRAFT' | 'OPEN';
     }
   ) {
-    return request('/contests', { method: 'POST', body: JSON.stringify(payload) }, userId);
+    return request<{ id: string; status: string }>('/contests', { method: 'POST', body: JSON.stringify(payload) }, userId);
   },
   async cloneContest(
     userId: string,
@@ -474,6 +494,26 @@ export const api = {
       {},
       userId
     );
+  },
+
+  async createStreakPick(userId: string, contestId: string, gameId: string, pickedWinner: string) {
+    return request<{ id: string; entryId: string; gameId: string; pickedWinner: string; status: string }>(
+      `/contests/${contestId}/streak-picks`,
+      { method: 'POST', body: JSON.stringify({ gameId, pickedWinner }) },
+      userId
+    );
+  },
+
+  async forfeitStreakPick(userId: string, contestId: string, pickId: string) {
+    return request<{ id: string; status: string }>(
+      `/contests/${contestId}/streak-picks/${pickId}/forfeit`,
+      { method: 'POST' },
+      userId
+    );
+  },
+
+  async getMyStreakPick(userId: string, contestId: string) {
+    return request<StreakPickState>(`/contests/${contestId}/streak-picks/me`, {}, userId);
   },
 
   async submitBracket(

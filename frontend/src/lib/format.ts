@@ -44,6 +44,7 @@ export function contestTypeLabel(contest: Pick<Contest, 'type' | 'name'>): strin
   if (contest.type === 'PICKEM_NFL') return "NFL Pick'em";
   if (contest.type === 'PICKEM_NBA') return "NBA Pick'em";
   if (contest.type === 'PICKEM_NHL') return "NHL Pick'em";
+  if (contest.type === 'STREAK') return 'Streak';
   if (contest.name.toLowerCase().includes('uefa') || contest.name.toLowerCase().includes('champions league')) return 'UEFA Champions League Bracket';
   if (contest.name.toLowerCase().includes('olympic hockey')) return 'Olympic Hockey Bracket';
   if (contest.name.toLowerCase().includes('conference tournament champions')) return "Conference Champions Pick'em";

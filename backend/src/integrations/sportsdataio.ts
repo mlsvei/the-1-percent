@@ -373,6 +373,26 @@ export async function fetchNflWeekFromEspn(season: number, week: number): Promis
     .filter((game): game is NormalizedGame => game !== null);
 }
 
+// Same scoreboard endpoint with no `week` param - ESPN defaults to the current week,
+// which it also reports back in the response body. Used by the Streak for the Peak
+// daily multi-sport ingest, which needs "whatever week it is right now" without
+// already having games seeded to infer it from (unlike fetchNflGamesFromEspn).
+export async function fetchNflCurrentWeekFromEspn(season: number): Promise<NormalizedGame[]> {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?year=${season}&seasontype=2`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`ESPN scoreboard request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const body = (await response.json()) as { events?: EspnEvent[]; week?: { number?: number } };
+  const events = body.events ?? [];
+  const week = body.week?.number ?? 0;
+
+  return events
+    .map((event) => normalizeEspnNflEvent(event, week))
+    .filter((game): game is NormalizedGame => game !== null);
+}
+
 async function fetchEspnNbaGamesByDate(date: string): Promise<NbaGameItem[]> {
   const yyyymmdd = date.replaceAll('-', '');
   const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${yyyymmdd}`;

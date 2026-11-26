@@ -3,7 +3,7 @@ import { pool, query } from '../db.js';
 
 type ContestRow = {
   id: string;
-  type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM';
+  type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM' | 'STREAK';
   scoring_config: Record<string, unknown>;
 };
 
@@ -291,11 +291,47 @@ async function applyEntryTotalsAndEmitEvents(args: {
   return changeCount;
 }
 
+async function gradeStreakContest(contest: ContestRow): Promise<{ contestId: string; changedEntries: number }> {
+  const resolvable = await query<{
+    pickId: string;
+    entryId: string;
+    pickedWinner: string;
+    winner: string;
+    currentStreak: number;
+    bestStreak: number;
+  }>(
+    `select sp.id as "pickId", sp.entry_id as "entryId", sp.picked_winner as "pickedWinner",
+            g.winner, e.current_streak as "currentStreak", e.best_streak as "bestStreak"
+       from streak_picks sp
+       join games g on g.id = sp.game_id
+       join entries e on e.id = sp.entry_id
+      where sp.status = 'ACTIVE' and e.contest_id = $1 and g.winner is not null`,
+    [contest.id]
+  );
+
+  let changedEntries = 0;
+  for (const row of resolvable.rows) {
+    const won = row.pickedWinner === row.winner;
+    const nextCurrent = won ? row.currentStreak + 1 : 0;
+    const nextBest = Math.max(row.bestStreak, nextCurrent);
+
+    await query('update streak_picks set status = $1, resolved_at = now() where id = $2', [won ? 'WON' : 'LOST', row.pickId]);
+    await query('update entries set current_streak = $1, best_streak = $2 where id = $3', [nextCurrent, nextBest, row.entryId]);
+    changedEntries += 1;
+  }
+
+  return { contestId: contest.id, changedEntries };
+}
+
 export async function gradeContest(contestId: string, source = 'INGEST'): Promise<{ contestId: string; changedEntries: number }> {
   const contests = await getContestsForGrading(contestId);
   const contest = contests[0];
   if (!contest) {
     throw new Error(`Contest not found: ${contestId}`);
+  }
+
+  if (contest.type === 'STREAK') {
+    return gradeStreakContest(contest);
   }
 
   const pickemTotals = await recalcPickemForContest(contest);

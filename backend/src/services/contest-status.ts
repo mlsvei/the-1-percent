@@ -4,6 +4,7 @@ type ContestStatus = 'DRAFT' | 'OPEN' | 'LOCKED' | 'COMPLETE';
 
 type ContestAggregate = {
   id: string;
+  type: string;
   status: ContestStatus;
   starts_at: string;
   lock_mode: 'PER_GAME' | 'FULL_BRACKET' | 'PER_ROUND';
@@ -27,6 +28,12 @@ function isFinalLikeStatus(status: string | null): boolean {
 
 function nextContestStatus(contest: ContestAggregate, now: Date): ContestStatus {
   if (contest.status === 'DRAFT') return 'DRAFT';
+
+  // Streak for the Peak keeps ingesting new games every day for the whole
+  // month - it has no fixed game set, so the finite-game-set LOCKED/COMPLETE
+  // logic below would wrongly flip it between picks. Its OPEN/DRAFT state is
+  // the admin's manual Publish/Send-to-Draft toggle instead.
+  if (contest.type === 'STREAK') return contest.status;
 
   if (contest.game_count > 0 && contest.final_count >= contest.game_count) {
     return 'COMPLETE';
@@ -54,6 +61,7 @@ export async function refreshContestStatuses(contestId?: string): Promise<void> 
   const aggregates = await query<ContestAggregate>(
     `select
        c.id,
+       c.type,
        c.status,
        c.starts_at,
        c.lock_mode,
@@ -73,7 +81,7 @@ export async function refreshContestStatuses(contestId?: string): Promise<void> 
      from contests c
      left join games g on g.contest_id = c.id
      ${where}
-     group by c.id, c.status, c.starts_at, c.lock_mode`,
+     group by c.id, c.type, c.status, c.starts_at, c.lock_mode`,
     params
   );
 

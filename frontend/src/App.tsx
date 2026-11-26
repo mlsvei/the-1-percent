@@ -64,6 +64,17 @@ function teamLogoUrlForContestType(contestType: string, teamName: string): strin
   return null;
 }
 
+// Streak for the Peak pools games from multiple sports into one contest, so
+// logo lookup has to go by each game's own sport rather than the contest's
+// type. CBB ("NCAAM") and soccer have no logo source yet - see the known
+// limitation called out when this feature was planned.
+function teamLogoUrlForSport(sport: string, teamName: string): string | null {
+  if (sport === 'NFL') return nflLogoUrl(teamName);
+  if (sport === 'NBA') return nbaLogoUrl(teamName);
+  if (sport === 'NHL') return nhlLogoUrl(teamName);
+  return null;
+}
+
 function NavIcon({ d }: { d: string }) {
   return (
     <svg viewBox="0 0 24 24" className="navIcon" aria-hidden="true">
@@ -276,6 +287,8 @@ export default function App() {
   const [marchRegionView, setMarchRegionView] = useState<MarchRegionView>('WEST');
   const [games, setGames] = useState<Game[]>([]);
   const [isGamesLoading, setIsGamesLoading] = useState(false);
+  const [streakState, setStreakState] = useState<import('./api').StreakPickState | null>(null);
+  const [isStreakLoading, setIsStreakLoading] = useState(false);
   const [pickDraft, setPickDraft] = useState<PickDraft>({});
   const [bracketDraft, setBracketDraft] = useState<BracketDraftRow[]>([{ gameSlot: '', pickedTeam: '', round: '1' }]);
   const [savedPicks, setSavedPicks] = useState<
@@ -306,6 +319,10 @@ export default function App() {
   const [cloneSeason, setCloneSeason] = useState('');
   const [cloneStartsAt, setCloneStartsAt] = useState('');
   const [cloneIncludeGames, setCloneIncludeGames] = useState(true);
+  const [newContestName, setNewContestName] = useState('');
+  const [newContestType, setNewContestType] = useState<'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM' | 'STREAK'>('STREAK');
+  const [newContestSeason, setNewContestSeason] = useState('');
+  const [newContestStartsAt, setNewContestStartsAt] = useState('');
   const [tiebreakerGuess, setTiebreakerGuess] = useState('');
   const tiebreakerSavedRef = useRef('');
   const [backendHealth, setBackendHealth] = useState<{ ok: boolean; service: string } | null>(null);
@@ -446,6 +463,7 @@ export default function App() {
   }, [filteredLeaderboardContests, selectedLeaderboardContestId]);
 
   const isPickemContest = selectedContest?.type === 'PICKEM_NFL' || selectedContest?.type === 'PICKEM_NBA' || selectedContest?.type === 'PICKEM_NHL';
+  const isStreakContest = selectedContest?.type === 'STREAK';
   const isNflPickemContest = selectedContest?.type === 'PICKEM_NFL';
   const contestWeeks = useMemo(() => {
     if (!isNflPickemContest) return [];
@@ -1317,6 +1335,12 @@ export default function App() {
   }, [selectedContestId]);
 
   useEffect(() => {
+    setStreakState(null);
+    if (!selectedContestId || !isStreakContest || !authToken) return;
+    void loadStreakState(selectedContestId);
+  }, [selectedContestId, isStreakContest, authToken]);
+
+  useEffect(() => {
     let active = true;
 
     setSavedPicks([]);
@@ -1688,6 +1712,43 @@ export default function App() {
     }
   }
 
+  async function loadStreakState(contestId: string) {
+    if (!authToken) return;
+    setIsStreakLoading(true);
+    try {
+      const data = await api.getMyStreakPick(authToken, contestId);
+      setStreakState(data);
+    } catch (err) {
+      handleAppError(err);
+    } finally {
+      setIsStreakLoading(false);
+    }
+  }
+
+  async function onCreateStreakPick(game: Game, pickedWinner: string) {
+    if (!selectedContestId || !isStreakContest) return;
+    setError('');
+    try {
+      await api.createStreakPick(authToken, selectedContestId, game.id, pickedWinner);
+      setStatus('Pick locked in.');
+      await loadStreakState(selectedContestId);
+    } catch (err) {
+      handleAppError(err);
+    }
+  }
+
+  async function onForfeitStreakPick(pickId: string) {
+    if (!selectedContestId) return;
+    setError('');
+    try {
+      await api.forfeitStreakPick(authToken, selectedContestId, pickId);
+      setStatus('Pick forfeited. Streak reset to 0.');
+      await loadStreakState(selectedContestId);
+    } catch (err) {
+      handleAppError(err);
+    }
+  }
+
   async function onSelectOlympicBracketTeam(gameSlot: string, round: number, pickedTeam: string) {
     if (!selectedContestId || isViewingContestParticipantEntry) return;
     setError('');
@@ -1865,6 +1926,40 @@ export default function App() {
 
       await refreshAll(authToken, created.id);
       setStatus('Contest cloned.');
+      openContestPage(created.id);
+    } catch (err) {
+      handleAppError(err);
+    }
+  }
+
+  async function onCreateContest(e: FormEvent) {
+    e.preventDefault();
+
+    const season = Number(newContestSeason);
+    if (!newContestName.trim() || !Number.isInteger(season) || season < 2020 || !newContestStartsAt) {
+      setError('Enter a valid contest name, season, and start date/time.');
+      return;
+    }
+
+    setError('');
+    try {
+      const startsAtIso = new Date(newContestStartsAt).toISOString();
+      const created = await api.createContest(authToken, {
+        name: newContestName.trim(),
+        type: newContestType,
+        season,
+        startsAt: startsAtIso,
+        lockMode: 'PER_GAME',
+        scoringConfig: {},
+        groupIds: [],
+        status: 'DRAFT'
+      });
+
+      setNewContestName('');
+      setNewContestSeason('');
+      setNewContestStartsAt('');
+      await refreshAll(authToken, created.id);
+      setStatus('Contest created as a draft.');
       openContestPage(created.id);
     } catch (err) {
       handleAppError(err);
@@ -2780,7 +2875,35 @@ export default function App() {
                 return (
                   <article className="card lift" key={contest.id}>
                     <div className="row between gap"><h3>{contest.name}</h3><span className="muted">{contest.status}</span></div>
-                    {rows.length === 0 ? <p className="muted">No entries yet.</p> : (() => {
+                    {rows.length === 0 ? <p className="muted">No entries yet.</p> : contest.type === 'STREAK' ? (
+                      <div className="leaderboardScrollWrap">
+                        <div className="leaderboardHeader">
+                          <span>Rank</span>
+                          <span>User</span>
+                          <span className="leaderboardHeaderMeta">
+                            <span>Current</span>
+                            <span>Best</span>
+                          </span>
+                        </div>
+                        <ol className="list leaderboardList">
+                        {rows.map((row, index) => (
+                          <li key={`${contest.id}-${row.userId}`} className="leaderboardRow">
+                            <span className="leaderboardRank">{index + 1}</span>
+                            <div className="leaderboardEntryBody">
+                              <div className="leaderboardNameCell">
+                                <button type="button" className="contestNameLink" onClick={() => onLeaderboardNameClick(contest.id, row.userId)}>{leaderboardDisplayName(row)}</button>
+                                <button type="button" className="secondary miniBtn" onClick={() => void onOpenUserStats(row.userId)}>Stats</button>
+                              </div>
+                              <div className="leaderboardMeta">
+                                <span className="leaderboardPercentile">{row.currentStreak ?? 0}</span>
+                                <span className="leaderboardPoints">{row.bestStreak ?? 0}</span>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                        </ol>
+                      </div>
+                    ) : (() => {
                       const showRecord = contest.type !== 'BRACKET_NCAAM';
                       return (
                       <>
@@ -2923,6 +3046,38 @@ export default function App() {
                 </section>
               ) : null}
 
+              {activeTopPage === 'home' && !contestPageId && isContestCreator ? (
+                <details className="card lift collapsibleCard" id="create-contest-page">
+                  <summary><h2>Create Contest</h2></summary>
+                  <form className="stack" onSubmit={onCreateContest}>
+                    <input
+                      value={newContestName}
+                      onChange={(e) => setNewContestName(e.target.value)}
+                      placeholder="Contest name (e.g. Streak for the Peak - December 2026)"
+                    />
+                    <select value={newContestType} onChange={(e) => setNewContestType(e.target.value as typeof newContestType)}>
+                      <option value="STREAK">Streak</option>
+                      <option value="PICKEM_NFL">NFL Pick'em</option>
+                      <option value="PICKEM_NBA">NBA Pick'em</option>
+                      <option value="PICKEM_NHL">NHL Pick'em</option>
+                      <option value="BRACKET_NCAAM">Bracket</option>
+                    </select>
+                    <input
+                      value={newContestSeason}
+                      onChange={(e) => setNewContestSeason(e.target.value)}
+                      placeholder="Season (e.g. 2026)"
+                      inputMode="numeric"
+                    />
+                    <input
+                      type="datetime-local"
+                      value={newContestStartsAt}
+                      onChange={(e) => setNewContestStartsAt(e.target.value)}
+                    />
+                    <button type="submit">Create Contest (Draft)</button>
+                  </form>
+                </details>
+              ) : null}
+
               {activeTopPage === 'home' && !contestPageId && filteredPriorEntries.length > 0 ? (
                 <details className="card lift collapsibleCard" id="prior-contests-page">
                   <summary><h2>Completed</h2></summary>
@@ -3024,6 +3179,18 @@ export default function App() {
                           </div>
                         ) : null}
                       </>
+                    ) : isStreakContest ? (
+                      <div className="entryStatsBar">
+                        <div className="entryStat">
+                          <span className="entryStatLabel">Current Streak</span>
+                          <span className="entryStatValue">{streakState?.currentStreak ?? 0}</span>
+                        </div>
+                        <span className="entryStatDivider" aria-hidden="true" />
+                        <div className="entryStat">
+                          <span className="entryStatLabel">Best Streak</span>
+                          <span className="entryStatValue">{streakState?.bestStreak ?? 0}</span>
+                        </div>
+                      </div>
                     ) : (
                       <div className="entryStatsBar">
                         <div className="entryStat">
@@ -3540,7 +3707,100 @@ export default function App() {
                     </section>
                   ) : null}
 
-                  {!isGamesLoading && games.length > 0 && !isMarchMadnessStandardContest && !isOlympicBracketContest && !isUefaBracketContest && !isConferenceChampionsContest && !isPickemContest ? (
+                  {!isGamesLoading && isStreakContest ? (
+                    <section className="streakBoard">
+                      <div className="entryStatsBar seasonStatsBar">
+                        <div className="entryStat">
+                          <span className="entryStatLabel">Current Streak</span>
+                          <span className="entryStatValue">{streakState?.currentStreak ?? 0}</span>
+                        </div>
+                        <span className="entryStatDivider" aria-hidden="true" />
+                        <div className="entryStat">
+                          <span className="entryStatLabel">Best Streak</span>
+                          <span className="entryStatValue">{streakState?.bestStreak ?? 0}</span>
+                        </div>
+                      </div>
+
+                      {isStreakLoading ? <p className="muted">Loading your streak...</p> : null}
+
+                      {!isStreakLoading && streakState?.activePick ? (
+                        <article className="card streakActivePick">
+                          <h4>Your Active Pick</h4>
+                          <p>
+                            <strong>{streakState.activePick.pickedWinner}</strong> to win {streakState.activePick.awayTeam} @ {streakState.activePick.homeTeam}
+                          </p>
+                          <p className="muted">Starts {fmtDateEastern(streakState.activePick.startTime)} ET</p>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => void onForfeitStreakPick(streakState.activePick!.id)}
+                            disabled={isViewingContestParticipantEntry}
+                          >
+                            Forfeit Pick
+                          </button>
+                        </article>
+                      ) : null}
+
+                      {!isStreakLoading && !streakState?.activePick ? (
+                        <>
+                          <h4>Pick a Game</h4>
+                          {games.filter((g) => new Date(g.startTime).getTime() > nowMs).length === 0 ? (
+                            <p className="muted">No upcoming games to pick from right now.</p>
+                          ) : null}
+                          {games
+                            .filter((g) => new Date(g.startTime).getTime() > nowMs)
+                            .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                            .map((game) => {
+                              const awayLogo = teamLogoUrlForSport(game.sport, game.awayTeam);
+                              const homeLogo = teamLogoUrlForSport(game.sport, game.homeTeam);
+                              return (
+                                <article key={game.id} className="pickRow pickemGameCard">
+                                  <div className="muted olympicMeta">{game.sport} · {fmtDateEastern(game.startTime)} ET</div>
+                                  <div className="olympicTeamButtons">
+                                    <button
+                                      type="button"
+                                      className="teamPickBtn"
+                                      onClick={() => void onCreateStreakPick(game, game.awayTeam)}
+                                      disabled={isViewingContestParticipantEntry}
+                                    >
+                                      {awayLogo ? <img className="nflPickTeamLogo" src={awayLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                      <span>{game.awayTeam}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="teamPickBtn"
+                                      onClick={() => void onCreateStreakPick(game, game.homeTeam)}
+                                      disabled={isViewingContestParticipantEntry}
+                                    >
+                                      {homeLogo ? <img className="nflPickTeamLogo" src={homeLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                      <span>{game.homeTeam}</span>
+                                    </button>
+                                  </div>
+                                </article>
+                              );
+                            })}
+                        </>
+                      ) : null}
+
+                      {streakState && streakState.history.length > 0 ? (
+                        <>
+                          <h4>Recent Picks</h4>
+                          <ol className="list">
+                            {streakState.history.map((pick) => (
+                              <li key={pick.id}>
+                                <span>{pick.pickedWinner} ({pick.awayTeam} @ {pick.homeTeam})</span>
+                                <span className={pick.status === 'WON' ? 'saveCheck' : pick.status === 'LOST' ? 'saveMiss' : 'muted'}>
+                                  {pick.status}
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+                        </>
+                      ) : null}
+                    </section>
+                  ) : null}
+
+                  {!isGamesLoading && games.length > 0 && !isMarchMadnessStandardContest && !isOlympicBracketContest && !isUefaBracketContest && !isConferenceChampionsContest && !isPickemContest && !isStreakContest ? (
                     <div className="tableWrap">
                       <table>
                         <thead>

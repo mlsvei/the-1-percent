@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { pool, query } from '../db.js';
+import { ensureStreakSchema } from './streak.js';
 import {
   fetchCbbGamesByDate,
   fetchNbaGamesByDate,
+  fetchNflCurrentWeekFromEspn,
   fetchNflSchedules,
   fetchNflWeekFromEspn,
   fetchNhlGamesByDate,
@@ -18,7 +20,7 @@ import {
 type ContestRow = {
   id: string;
   name: string;
-  type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM';
+  type: 'PICKEM_NFL' | 'PICKEM_NBA' | 'PICKEM_NHL' | 'BRACKET_NCAAM' | 'STREAK';
   season: number;
   starts_at: string;
   status: 'OPEN' | 'LOCKED' | 'DRAFT' | 'COMPLETE';
@@ -535,6 +537,70 @@ async function syncNhlContest(contest: ContestRow): Promise<{ syncedGames: numbe
   return upsertContestGames(contest.id, all);
 }
 
+function easternDateString(offsetDays: number): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
+  const date = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  return formatter.format(date); // en-CA formats as YYYY-MM-DD
+}
+
+// Streak for the Peak pools together whatever games are happening today and
+// tomorrow across every sport the app ingests, so there's always a ~30-game
+// slate to pick from. Unlike the single-sport syncers above, this can't key
+// off dates already seeded in the games table - the whole point is to keep
+// discovering new days' games as the month progresses.
+async function syncStreakContest(contest: ContestRow): Promise<{ syncedGames: number; changedGameIds: string[] }> {
+  const dates = [easternDateString(0), easternDateString(1)];
+  const all: NormalizedGame[] = [];
+
+  for (const date of dates) {
+    try {
+      const games = await fetchNbaGamesByDate(date);
+      for (const game of games) all.push(normalizeNbaGame(game));
+    } catch (error) {
+      console.warn(`[game-ingest] Streak NBA fetch failed for ${date}:`, error);
+    }
+
+    try {
+      const games = await fetchNhlGamesByDate(date);
+      for (const game of games) all.push(normalizeNhlGame(game));
+    } catch (error) {
+      console.warn(`[game-ingest] Streak NHL fetch failed for ${date}:`, error);
+    }
+
+    try {
+      const games = await fetchCbbGamesByDate(date);
+      for (const game of games) all.push(normalizeCbbGame(game));
+    } catch (error) {
+      console.warn(`[game-ingest] Streak CBB fetch failed for ${date}:`, error);
+    }
+
+    try {
+      const games = await fetchSoccerGamesByDate(date);
+      for (const game of games) all.push(normalizeSoccerGame(game));
+    } catch (error) {
+      console.warn(`[game-ingest] Streak soccer fetch failed for ${date}:`, error);
+    }
+  }
+
+  try {
+    const nflGames = await fetchNflCurrentWeekFromEspn(contest.season);
+    for (const game of nflGames) {
+      if (dates.includes(easternDateFromIso(game.startTime))) {
+        all.push(game);
+      }
+    }
+  } catch (error) {
+    console.warn('[game-ingest] Streak NFL fetch failed:', error);
+  }
+
+  return upsertContestGames(contest.id, all);
+}
+
+function easternDateFromIso(iso: string): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
+  return formatter.format(new Date(iso));
+}
+
 async function syncBracketContest(contest: ContestRow, fromDate: string, toDate: string): Promise<{ syncedGames: number; changedGameIds: string[] }> {
   const dates = eachDateIso(fromDate, toDate);
   const all: NormalizedGame[] = [];
@@ -683,6 +749,7 @@ export async function syncContestGames(args: {
   includeBracketContests?: boolean;
 }): Promise<SyncContestResult[]> {
   await ensureGamesWeekColumn();
+  await ensureStreakSchema();
   const includeBracketContests = args.includeBracketContests ?? true;
   const contests = await getContestsForIngest(args.contestId);
   const results: SyncContestResult[] = [];
@@ -708,6 +775,12 @@ export async function syncContestGames(args: {
 
       if (contest.type === 'PICKEM_NHL') {
         const synced = await syncNhlContest(contest);
+        results.push({ contestId: contest.id, contestName: contest.name, syncedGames: synced.syncedGames, changedGameIds: synced.changedGameIds });
+        continue;
+      }
+
+      if (contest.type === 'STREAK') {
+        const synced = await syncStreakContest(contest);
         results.push({ contestId: contest.id, contestName: contest.name, syncedGames: synced.syncedGames, changedGameIds: synced.changedGameIds });
         continue;
       }

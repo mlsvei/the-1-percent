@@ -8,6 +8,7 @@ import { contestsRouter } from './routes/contests.js';
 import { entriesRouter } from './routes/entries.js';
 import { groupsRouter } from './routes/groups.js';
 import { healthRouter } from './routes/health.js';
+import { streakRouter } from './routes/streak.js';
 import { submissionsRouter } from './routes/submissions.js';
 import { usersRouter } from './routes/users.js';
 import { startIngestWorker } from './services/ingest-worker.js';
@@ -25,6 +26,7 @@ app.use('/api', groupsRouter);
 app.use('/api', contestsRouter);
 app.use('/api', entriesRouter);
 app.use('/api', submissionsRouter);
+app.use('/api', streakRouter);
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(error);
