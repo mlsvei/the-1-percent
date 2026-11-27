@@ -3927,8 +3927,10 @@ export default function App() {
                               const statusLower = game.status.toLowerCase();
                               const isGraded = Boolean(game.winner) || statusLower.includes('final') || statusLower.includes('complete');
                               const statusLabel = isGraded ? 'FINAL' : hasStarted ? 'LIVE' : `${fmtDateEastern(game.startTime)} ET`;
+                              const myPick = streakState?.history.find((pick) => pick.gameId === game.id);
+                              const myPickClass = myPick?.status === 'WON' ? 'myPickCorrect' : myPick?.status === 'LOST' ? 'myPickWrong' : '';
                               return (
-                                <article key={game.id} className="pickRow pickemGameCard">
+                                <article key={game.id} className={'pickRow pickemGameCard ' + myPickClass}>
                                   <div className="muted olympicMeta">{game.sport} · {statusLabel}</div>
                                   <div className="streakGameTitle">{game.awayTeam} vs. {game.homeTeam}</div>
                                   {gameProp ? (
@@ -3941,6 +3943,11 @@ export default function App() {
                                             : gameProp.status === 'VOID'
                                               ? 'Voided'
                                               : 'Pending result'}
+                                          {myPick ? (
+                                            <span className={'streakMyPickNote ' + myPickClass}>
+                                              {' '}(Your pick: {myPick.selectedOptionLabel} - {myPick.status})
+                                            </span>
+                                          ) : null}
                                         </p>
                                       ) : (
                                         <div className="olympicTeamButtons">
@@ -3975,6 +3982,11 @@ export default function App() {
                                         <span>{game.homeTeam}</span>
                                         {game.homeScore != null ? <span className="streakScoreValue">{game.homeScore}</span> : null}
                                       </div>
+                                      {myPick ? (
+                                        <p className={'streakMyPickNote ' + myPickClass}>
+                                          Your pick: {myPick.pickedWinner} - {myPick.status}
+                                        </p>
+                                      ) : null}
                                     </div>
                                   ) : (
                                     <>

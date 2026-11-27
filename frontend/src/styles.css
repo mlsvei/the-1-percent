@@ -2639,6 +2639,28 @@ td {
   opacity: 0.8;
 }
 
+.pickemGameCard.myPickWrong {
+  border-color: #ff6b6b;
+  background: color-mix(in srgb, var(--panel), #ff6b6b 10%);
+}
+
+.pickemGameCard.myPickCorrect {
+  border-color: #3ddc84;
+  background: color-mix(in srgb, var(--panel), #3ddc84 8%);
+}
+
+.streakMyPickNote {
+  font-weight: 700;
+}
+
+.streakMyPickNote.myPickWrong {
+  color: #ff6b6b;
+}
+
+.streakMyPickNote.myPickCorrect {
+  color: #3ddc84;
+}
+
 .confidenceInputRow {
   display: flex;
   align-items: center;
