@@ -714,8 +714,10 @@ async function syncStreakContest(contest: ContestRow): Promise<{ syncedGames: nu
 // per-sport/day caps stay real across cycles as the pool shifts, e.g. a new
 // league added or a TBD game resolving) instead of silently growing forever,
 // since upsertContestGames only ever inserts/updates. Never touches a
-// finalized day, and never removes a game a user has already picked or that
-// already has a prop attached.
+// finalized day, and never removes a game a real user has already picked
+// (checked via streak_picks only - an auto-generated prop with no pick on it
+// isn't real user engagement, so it doesn't block pruning; any such orphaned
+// prop is deleted along with its game).
 async function pruneUnselectedStreakGames(contestId: string, selectedKeys: Set<string>, nonFinalizedDates: Set<string>): Promise<void> {
   if (nonFinalizedDates.size === 0) return;
 
@@ -730,11 +732,12 @@ async function pruneUnselectedStreakGames(contestId: string, selectedKeys: Set<s
     if (selectedKeys.has(`${row.homeTeam}|${row.awayTeam}|${day}`)) continue;
 
     const referenced = await query<{ exists: boolean }>(
-      `select exists(select 1 from streak_picks where game_id = $1) or exists(select 1 from streak_props where game_id = $1) as "exists"`,
+      `select exists(select 1 from streak_picks where game_id = $1) as "exists"`,
       [row.id]
     );
     if (referenced.rows[0]?.exists) continue;
 
+    await query('delete from streak_props where game_id = $1', [row.id]);
     await query('delete from games where id = $1', [row.id]);
   }
 }

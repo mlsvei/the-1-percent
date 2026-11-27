@@ -494,22 +494,31 @@ export default function App() {
     if (!isNflPickemContest || activeWeek == null) return games;
     return games.filter((g) => g.week == null || g.week === activeWeek);
   }, [isNflPickemContest, games, activeWeek]);
-  const streakUpcomingGames = useMemo(() => {
+  const streakAllGames = useMemo(() => {
     if (!isStreakContest) return [];
-    return games
-      .filter((g) => new Date(g.startTime).getTime() > nowMs)
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [isStreakContest, games, nowMs]);
+    return [...games].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [isStreakContest, games]);
   const streakDates = useMemo(() => {
     const dates = new Set<string>();
-    for (const game of streakUpcomingGames) dates.add(easternDateKey(game.startTime));
+    for (const game of streakAllGames) dates.add(easternDateKey(game.startTime));
     return Array.from(dates).sort();
-  }, [streakUpcomingGames]);
-  const activeStreakDate = selectedStreakDate && streakDates.includes(selectedStreakDate) ? selectedStreakDate : streakDates[0] ?? null;
+  }, [streakAllGames]);
+  // Defaults to the earliest day that still has an upcoming game (today, or
+  // tomorrow if today's slate is done) rather than the oldest day, so past
+  // days stay reachable via their tab without taking over the default view.
+  const streakEffectiveDate = useMemo(() => {
+    if (streakDates.length === 0) return null;
+    const datesWithUpcoming = new Set(
+      streakAllGames.filter((g) => new Date(g.startTime).getTime() > nowMs).map((g) => easternDateKey(g.startTime))
+    );
+    const earliestUpcoming = streakDates.find((date) => datesWithUpcoming.has(date));
+    return earliestUpcoming ?? streakDates[streakDates.length - 1];
+  }, [streakDates, streakAllGames, nowMs]);
+  const activeStreakDate = selectedStreakDate && streakDates.includes(selectedStreakDate) ? selectedStreakDate : streakEffectiveDate;
   const streakSlateGames = useMemo(() => {
     if (activeStreakDate == null) return [];
-    return streakUpcomingGames.filter((g) => easternDateKey(g.startTime) === activeStreakDate);
-  }, [streakUpcomingGames, activeStreakDate]);
+    return streakAllGames.filter((g) => easternDateKey(g.startTime) === activeStreakDate);
+  }, [streakAllGames, activeStreakDate]);
   const isStraightPickemContest = isPickemContest && selectedContest?.scoringConfig?.pickem?.useConfidence !== true;
   const tiebreakerPrompt = isNflPickemContest
     ? (selectedContest?.scoringConfig?.tiebreakers?.[String(activeWeek ?? 0)] ?? null)
@@ -3904,42 +3913,69 @@ export default function App() {
                             </p>
                           ) : null}
                           {streakSlateGames.length === 0 ? (
-                            <p className="muted">No upcoming games to pick from right now.</p>
+                            <p className="muted">No games for this day.</p>
                           ) : null}
                           {streakSlateGames
                             .map((game) => {
-                              const gameProp = streakProps.find((prop) => prop.gameId === game.id && prop.status === 'OPEN');
+                              const gameProp = streakProps.find((prop) => prop.gameId === game.id);
                               const awayLogo = teamLogoUrlForSport(game.sport, game.awayTeam);
                               const homeLogo = teamLogoUrlForSport(game.sport, game.homeTeam);
                               const activePick = streakState?.activePick;
                               const pickDisabled = isViewingContestParticipantEntry || Boolean(activePick);
                               const isActiveGame = activePick?.gameId === game.id;
+                              const hasStarted = new Date(game.startTime).getTime() <= nowMs;
+                              const statusLower = game.status.toLowerCase();
+                              const isGraded = Boolean(game.winner) || statusLower.includes('final') || statusLower.includes('complete');
+                              const statusLabel = isGraded ? 'FINAL' : hasStarted ? 'LIVE' : `${fmtDateEastern(game.startTime)} ET`;
                               return (
                                 <article key={game.id} className="pickRow pickemGameCard">
-                                  <div className="muted olympicMeta">{game.sport} · {fmtDateEastern(game.startTime)} ET</div>
+                                  <div className="muted olympicMeta">{game.sport} · {statusLabel}</div>
                                   <div className="streakGameTitle">{game.awayTeam} vs. {game.homeTeam}</div>
                                   {gameProp ? (
                                     <>
                                       <div className="muted olympicMeta">{gameProp.label}</div>
-                                      <div className="olympicTeamButtons">
-                                        <button
-                                          type="button"
-                                          className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === gameProp.optionAKey ? 'selected' : '')}
-                                          onClick={() => void onCreateStreakPropPick(game, gameProp, gameProp.optionAKey)}
-                                          disabled={pickDisabled}
-                                        >
-                                          <span>{gameProp.optionALabel}</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === gameProp.optionBKey ? 'selected' : '')}
-                                          onClick={() => void onCreateStreakPropPick(game, gameProp, gameProp.optionBKey)}
-                                          disabled={pickDisabled}
-                                        >
-                                          <span>{gameProp.optionBLabel}</span>
-                                        </button>
-                                      </div>
+                                      {hasStarted ? (
+                                        <p className="muted">
+                                          {gameProp.status === 'GRADED'
+                                            ? `Result: ${gameProp.resultKey === gameProp.optionAKey ? gameProp.optionALabel : gameProp.optionBLabel}`
+                                            : gameProp.status === 'VOID'
+                                              ? 'Voided'
+                                              : 'Pending result'}
+                                        </p>
+                                      ) : (
+                                        <div className="olympicTeamButtons">
+                                          <button
+                                            type="button"
+                                            className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === gameProp.optionAKey ? 'selected' : '')}
+                                            onClick={() => void onCreateStreakPropPick(game, gameProp, gameProp.optionAKey)}
+                                            disabled={pickDisabled}
+                                          >
+                                            <span>{gameProp.optionALabel}</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === gameProp.optionBKey ? 'selected' : '')}
+                                            onClick={() => void onCreateStreakPropPick(game, gameProp, gameProp.optionBKey)}
+                                            disabled={pickDisabled}
+                                          >
+                                            <span>{gameProp.optionBLabel}</span>
+                                          </button>
+                                        </div>
+                                      )}
                                     </>
+                                  ) : hasStarted ? (
+                                    <div className="olympicTeamButtons">
+                                      <div className={'teamPickBtn readOnly ' + (isGraded && game.winner === game.awayTeam ? 'gameWinner' : '')}>
+                                        {awayLogo ? <img className="nflPickTeamLogo" src={awayLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                        <span>{game.awayTeam}</span>
+                                        {game.awayScore != null ? <span className="streakScoreValue">{game.awayScore}</span> : null}
+                                      </div>
+                                      <div className={'teamPickBtn readOnly ' + (isGraded && game.winner === game.homeTeam ? 'gameWinner' : '')}>
+                                        {homeLogo ? <img className="nflPickTeamLogo" src={homeLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                        <span>{game.homeTeam}</span>
+                                        {game.homeScore != null ? <span className="streakScoreValue">{game.homeScore}</span> : null}
+                                      </div>
+                                    </div>
                                   ) : (
                                     <>
                                       <div className="muted olympicMeta">Who will win this game?</div>

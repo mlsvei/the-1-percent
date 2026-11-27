@@ -2624,6 +2624,21 @@ td {
   color: #1a1407;
 }
 
+.pickemGameCard .teamPickBtn.readOnly {
+  cursor: default;
+  justify-content: space-between;
+}
+
+.pickemGameCard .teamPickBtn.readOnly.gameWinner {
+  border-color: var(--gold);
+  font-weight: 700;
+}
+
+.streakScoreValue {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
 .confidenceInputRow {
   display: flex;
   align-items: center;
