@@ -36,7 +36,7 @@ import {
 import { renderBracketTeamIcon, renderUefaTeamIcon } from './lib/bracketIcons';
 import { MarchRegionView, MARCH_MADNESS_SEEDS, NCAAB_CONFERENCE_TEAMS } from './lib/marchMadness';
 import { nbaLogoUrl, nhlLogoUrl, nflLogoUrl } from './lib/teamAssets';
-import { ContestSportFilter, fmtDate, fmtDateEastern, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
+import { ContestSportFilter, fmtDate, fmtDateEastern, easternDateKey, easternDateTabLabel, streakSlateCutoffIso, toLocalDateTimeValue, countdownWithin24h, contestTypeLabel, contestMatchesSportFilter } from './lib/format';
 import {
   leaderboardDisplayName,
   rankFromPoints,
@@ -289,6 +289,14 @@ export default function App() {
   const [isGamesLoading, setIsGamesLoading] = useState(false);
   const [streakState, setStreakState] = useState<import('./api').StreakPickState | null>(null);
   const [isStreakLoading, setIsStreakLoading] = useState(false);
+  const [selectedStreakDate, setSelectedStreakDate] = useState<string | null>(null);
+  const [streakProps, setStreakProps] = useState<import('./api').StreakProp[]>([]);
+  const [newPropGameId, setNewPropGameId] = useState('');
+  const [newPropType, setNewPropType] = useState<'FIRST_TD' | 'PLAYER_STAT_OU'>('FIRST_TD');
+  const [newPropLabel, setNewPropLabel] = useState('');
+  const [newPropPlayerName, setNewPropPlayerName] = useState('');
+  const [newPropStatKey, setNewPropStatKey] = useState('');
+  const [newPropStatLine, setNewPropStatLine] = useState('');
   const [pickDraft, setPickDraft] = useState<PickDraft>({});
   const [bracketDraft, setBracketDraft] = useState<BracketDraftRow[]>([{ gameSlot: '', pickedTeam: '', round: '1' }]);
   const [savedPicks, setSavedPicks] = useState<
@@ -486,6 +494,22 @@ export default function App() {
     if (!isNflPickemContest || activeWeek == null) return games;
     return games.filter((g) => g.week == null || g.week === activeWeek);
   }, [isNflPickemContest, games, activeWeek]);
+  const streakUpcomingGames = useMemo(() => {
+    if (!isStreakContest) return [];
+    return games
+      .filter((g) => new Date(g.startTime).getTime() > nowMs)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [isStreakContest, games, nowMs]);
+  const streakDates = useMemo(() => {
+    const dates = new Set<string>();
+    for (const game of streakUpcomingGames) dates.add(easternDateKey(game.startTime));
+    return Array.from(dates).sort();
+  }, [streakUpcomingGames]);
+  const activeStreakDate = selectedStreakDate && streakDates.includes(selectedStreakDate) ? selectedStreakDate : streakDates[0] ?? null;
+  const streakSlateGames = useMemo(() => {
+    if (activeStreakDate == null) return [];
+    return streakUpcomingGames.filter((g) => easternDateKey(g.startTime) === activeStreakDate);
+  }, [streakUpcomingGames, activeStreakDate]);
   const isStraightPickemContest = isPickemContest && selectedContest?.scoringConfig?.pickem?.useConfidence !== true;
   const tiebreakerPrompt = isNflPickemContest
     ? (selectedContest?.scoringConfig?.tiebreakers?.[String(activeWeek ?? 0)] ?? null)
@@ -1135,6 +1159,7 @@ export default function App() {
 
   useEffect(() => {
     setSelectedWeek(null);
+    setSelectedStreakDate(null);
   }, [selectedContestId]);
 
   useEffect(() => {
@@ -1336,7 +1361,10 @@ export default function App() {
 
   useEffect(() => {
     setStreakState(null);
-    if (!selectedContestId || !isStreakContest || !authToken) return;
+    setStreakProps([]);
+    if (!selectedContestId || !isStreakContest) return;
+    void loadStreakProps(selectedContestId);
+    if (!authToken) return;
     void loadStreakState(selectedContestId);
   }, [selectedContestId, isStreakContest, authToken]);
 
@@ -1732,6 +1760,53 @@ export default function App() {
       await api.createStreakPick(authToken, selectedContestId, game.id, pickedWinner);
       setStatus('Pick locked in.');
       await loadStreakState(selectedContestId);
+    } catch (err) {
+      handleAppError(err);
+    }
+  }
+
+  async function loadStreakProps(contestId: string) {
+    try {
+      const data = await api.streakProps(contestId);
+      setStreakProps(data.props);
+    } catch (err) {
+      handleAppError(err);
+    }
+  }
+
+  async function onCreateStreakPropPick(game: Game, prop: import('./api').StreakProp, optionKey: string) {
+    if (!selectedContestId || !isStreakContest) return;
+    setError('');
+    try {
+      await api.createStreakPropPick(authToken, selectedContestId, game.id, prop.id, optionKey);
+      setStatus('Pick locked in.');
+      await loadStreakState(selectedContestId);
+    } catch (err) {
+      handleAppError(err);
+    }
+  }
+
+  async function onCreateStreakProp(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedContestId) return;
+    setError('');
+    try {
+      const statLine = newPropStatLine.trim() ? Number(newPropStatLine) : undefined;
+      await api.createStreakProp(authToken, selectedContestId, {
+        gameId: newPropGameId,
+        propType: newPropType,
+        label: newPropLabel.trim(),
+        statLine,
+        playerName: newPropType === 'PLAYER_STAT_OU' ? newPropPlayerName.trim() : undefined,
+        statKey: newPropType === 'PLAYER_STAT_OU' ? newPropStatKey.trim() : undefined
+      });
+      setStatus('Prop created.');
+      setNewPropGameId('');
+      setNewPropLabel('');
+      setNewPropPlayerName('');
+      setNewPropStatKey('');
+      setNewPropStatLine('');
+      await loadStreakProps(selectedContestId);
     } catch (err) {
       handleAppError(err);
     }
@@ -3334,6 +3409,61 @@ export default function App() {
                       />
                       <button type="submit">Save Override</button>
                     </form>
+
+                    {isStreakContest ? (
+                      <form className="stack" onSubmit={onCreateStreakProp}>
+                        <h4>Add Prop</h4>
+                        <select value={newPropGameId} onChange={(e) => setNewPropGameId(e.target.value)} required>
+                          <option value="">Select game</option>
+                          {games.map((game) => (
+                            <option key={game.id} value={game.id}>
+                              {game.sport} - {game.awayTeam} @ {game.homeTeam}
+                            </option>
+                          ))}
+                        </select>
+                        <select value={newPropType} onChange={(e) => setNewPropType(e.target.value as 'FIRST_TD' | 'PLAYER_STAT_OU')}>
+                          <option value="FIRST_TD">First Team to Score a TD</option>
+                          <option value="PLAYER_STAT_OU">Player Stat Over/Under</option>
+                        </select>
+                        <input
+                          value={newPropLabel}
+                          onChange={(e) => setNewPropLabel(e.target.value)}
+                          placeholder={newPropType === 'FIRST_TD' ? 'Label (e.g. First TD Scorer)' : 'Label (e.g. LeBron James - Points)'}
+                          required
+                        />
+                        {newPropType === 'PLAYER_STAT_OU' ? (
+                          <>
+                            <input
+                              value={newPropPlayerName}
+                              onChange={(e) => setNewPropPlayerName(e.target.value)}
+                              placeholder="Player name (exact ESPN display name, e.g. LeBron James)"
+                            />
+                            <input
+                              value={newPropStatKey}
+                              onChange={(e) => setNewPropStatKey(e.target.value)}
+                              placeholder="Stat key (e.g. PTS, REB, AST)"
+                            />
+                            <input
+                              value={newPropStatLine}
+                              onChange={(e) => setNewPropStatLine(e.target.value)}
+                              placeholder="Line (e.g. 19.5)"
+                              inputMode="decimal"
+                            />
+                          </>
+                        ) : null}
+                        <button type="submit">Add Prop</button>
+                        {streakProps.length > 0 ? (
+                          <ol className="list">
+                            {streakProps.map((prop) => (
+                              <li key={prop.id}>
+                                <span>{prop.label}</span>
+                                <span className="muted">{prop.status}{prop.resultKey ? `: ${prop.resultKey}` : ''}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : null}
+                      </form>
+                    ) : null}
                   </div>
                 </details>
               ) : null}
@@ -3726,9 +3856,17 @@ export default function App() {
                       {!isStreakLoading && streakState?.activePick ? (
                         <article className="card streakActivePick">
                           <h4>Your Active Pick</h4>
-                          <p>
-                            <strong>{streakState.activePick.pickedWinner}</strong> to win {streakState.activePick.awayTeam} @ {streakState.activePick.homeTeam}
-                          </p>
+                          {streakState.activePick.propId ? (
+                            <p>
+                              <strong>{streakState.activePick.selectedOptionLabel}</strong> - {streakState.activePick.propLabel}
+                              <br />
+                              <span className="muted">{streakState.activePick.awayTeam} @ {streakState.activePick.homeTeam}</span>
+                            </p>
+                          ) : (
+                            <p>
+                              <strong>{streakState.activePick.pickedWinner}</strong> to win {streakState.activePick.awayTeam} @ {streakState.activePick.homeTeam}
+                            </p>
+                          )}
                           <p className="muted">Starts {fmtDateEastern(streakState.activePick.startTime)} ET</p>
                           <button
                             type="button"
@@ -3741,41 +3879,92 @@ export default function App() {
                         </article>
                       ) : null}
 
-                      {!isStreakLoading && !streakState?.activePick ? (
+                      {!isStreakLoading ? (
                         <>
                           <h4>Pick a Game</h4>
-                          {games.filter((g) => new Date(g.startTime).getTime() > nowMs).length === 0 ? (
+                          {streakDates.length > 1 ? (
+                            <div className="weekTabRow">
+                              {streakDates.map((date) => (
+                                <button
+                                  key={date}
+                                  type="button"
+                                  className={'weekTabBtn ' + (date === activeStreakDate ? 'active' : '')}
+                                  onClick={() => setSelectedStreakDate(date)}
+                                >
+                                  <span>{easternDateTabLabel(`${date}T12:00:00-05:00`)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                          {activeStreakDate && nowMs < Date.parse(streakSlateCutoffIso(activeStreakDate)) ? (
+                            <p className="muted streakFinalizeNotice">
+                              Games for {easternDateTabLabel(`${activeStreakDate}T12:00:00-05:00`)} finalize in{' '}
+                              <LiveCountdown targetIso={streakSlateCutoffIso(activeStreakDate)} /> - no more games or props will be
+                              added after that.
+                            </p>
+                          ) : null}
+                          {streakSlateGames.length === 0 ? (
                             <p className="muted">No upcoming games to pick from right now.</p>
                           ) : null}
-                          {games
-                            .filter((g) => new Date(g.startTime).getTime() > nowMs)
-                            .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                          {streakSlateGames
                             .map((game) => {
+                              const gameProp = streakProps.find((prop) => prop.gameId === game.id && prop.status === 'OPEN');
                               const awayLogo = teamLogoUrlForSport(game.sport, game.awayTeam);
                               const homeLogo = teamLogoUrlForSport(game.sport, game.homeTeam);
+                              const activePick = streakState?.activePick;
+                              const pickDisabled = isViewingContestParticipantEntry || Boolean(activePick);
+                              const isActiveGame = activePick?.gameId === game.id;
                               return (
                                 <article key={game.id} className="pickRow pickemGameCard">
                                   <div className="muted olympicMeta">{game.sport} · {fmtDateEastern(game.startTime)} ET</div>
-                                  <div className="olympicTeamButtons">
-                                    <button
-                                      type="button"
-                                      className="teamPickBtn"
-                                      onClick={() => void onCreateStreakPick(game, game.awayTeam)}
-                                      disabled={isViewingContestParticipantEntry}
-                                    >
-                                      {awayLogo ? <img className="nflPickTeamLogo" src={awayLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
-                                      <span>{game.awayTeam}</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="teamPickBtn"
-                                      onClick={() => void onCreateStreakPick(game, game.homeTeam)}
-                                      disabled={isViewingContestParticipantEntry}
-                                    >
-                                      {homeLogo ? <img className="nflPickTeamLogo" src={homeLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
-                                      <span>{game.homeTeam}</span>
-                                    </button>
-                                  </div>
+                                  <div className="streakGameTitle">{game.awayTeam} vs. {game.homeTeam}</div>
+                                  {gameProp ? (
+                                    <>
+                                      <div className="muted olympicMeta">{gameProp.label}</div>
+                                      <div className="olympicTeamButtons">
+                                        <button
+                                          type="button"
+                                          className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === gameProp.optionAKey ? 'selected' : '')}
+                                          onClick={() => void onCreateStreakPropPick(game, gameProp, gameProp.optionAKey)}
+                                          disabled={pickDisabled}
+                                        >
+                                          <span>{gameProp.optionALabel}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === gameProp.optionBKey ? 'selected' : '')}
+                                          onClick={() => void onCreateStreakPropPick(game, gameProp, gameProp.optionBKey)}
+                                          disabled={pickDisabled}
+                                        >
+                                          <span>{gameProp.optionBLabel}</span>
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="muted olympicMeta">Who will win this game?</div>
+                                      <div className="olympicTeamButtons">
+                                        <button
+                                          type="button"
+                                          className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === game.awayTeam ? 'selected' : '')}
+                                          onClick={() => void onCreateStreakPick(game, game.awayTeam)}
+                                          disabled={pickDisabled}
+                                        >
+                                          {awayLogo ? <img className="nflPickTeamLogo" src={awayLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                          <span>{game.awayTeam}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={'teamPickBtn ' + (isActiveGame && activePick?.pickedWinner === game.homeTeam ? 'selected' : '')}
+                                          onClick={() => void onCreateStreakPick(game, game.homeTeam)}
+                                          disabled={pickDisabled}
+                                        >
+                                          {homeLogo ? <img className="nflPickTeamLogo" src={homeLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
+                                          <span>{game.homeTeam}</span>
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
                                 </article>
                               );
                             })}
@@ -3788,7 +3977,11 @@ export default function App() {
                           <ol className="list">
                             {streakState.history.map((pick) => (
                               <li key={pick.id}>
-                                <span>{pick.pickedWinner} ({pick.awayTeam} @ {pick.homeTeam})</span>
+                                <span>
+                                  {pick.propId
+                                    ? `${pick.selectedOptionLabel} - ${pick.propLabel}`
+                                    : `${pick.pickedWinner} (${pick.awayTeam} @ ${pick.homeTeam})`}
+                                </span>
                                 <span className={pick.status === 'WON' ? 'saveCheck' : pick.status === 'LOST' ? 'saveMiss' : 'muted'}>
                                   {pick.status}
                                 </span>

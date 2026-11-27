@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { pool, query } from '../db.js';
+import { gradeOpenStreakProps } from './streak.js';
 
 type ContestRow = {
   id: string;
@@ -292,26 +293,47 @@ async function applyEntryTotalsAndEmitEvents(args: {
 }
 
 async function gradeStreakContest(contest: ContestRow): Promise<{ contestId: string; changedEntries: number }> {
+  await gradeOpenStreakProps(contest.id);
+
   const resolvable = await query<{
     pickId: string;
     entryId: string;
     pickedWinner: string;
-    winner: string;
+    propId: string | null;
+    winner: string | null;
+    propStatus: string | null;
+    propResultKey: string | null;
     currentStreak: number;
     bestStreak: number;
   }>(
-    `select sp.id as "pickId", sp.entry_id as "entryId", sp.picked_winner as "pickedWinner",
-            g.winner, e.current_streak as "currentStreak", e.best_streak as "bestStreak"
+    `select sp.id as "pickId", sp.entry_id as "entryId", sp.picked_winner as "pickedWinner", sp.prop_id as "propId",
+            g.winner, p.status as "propStatus", p.result_key as "propResultKey",
+            e.current_streak as "currentStreak", e.best_streak as "bestStreak"
        from streak_picks sp
        join games g on g.id = sp.game_id
        join entries e on e.id = sp.entry_id
-      where sp.status = 'ACTIVE' and e.contest_id = $1 and g.winner is not null`,
+       left join streak_props p on p.id = sp.prop_id
+      where sp.status = 'ACTIVE'
+        and e.contest_id = $1
+        and (
+          (sp.prop_id is null and g.winner is not null)
+          or (sp.prop_id is not null and p.status in ('GRADED','VOID'))
+        )`,
     [contest.id]
   );
 
   let changedEntries = 0;
   for (const row of resolvable.rows) {
-    const won = row.pickedWinner === row.winner;
+    if (row.propStatus === 'VOID') {
+      // Not the user's fault a prop never resolved - forfeit the pick without
+      // touching their streak so they simply get a fresh active-pick slot.
+      await query("update streak_picks set status = 'FORFEITED', resolved_at = now() where id = $1", [row.pickId]);
+      changedEntries += 1;
+      continue;
+    }
+
+    const resultKey = row.propId ? row.propResultKey : row.winner;
+    const won = row.pickedWinner === resultKey;
     const nextCurrent = won ? row.currentStreak + 1 : 0;
     const nextBest = Math.max(row.bestStreak, nextCurrent);
 

@@ -526,9 +526,14 @@ export async function fetchCbbGamesByDate(date: string): Promise<CbbGameItem[]> 
   return [];
 }
 
-async function fetchEspnSoccerGamesByDate(date: string): Promise<EspnSoccerGameItem[]> {
+// Leagues pulled into the shared soccer pool. All follow the same ESPN
+// site-api path pattern (soccer/<league-code>), so adding another league is
+// just another entry here.
+const SOCCER_LEAGUE_PATHS = ['uefa.champions', 'eng.1', 'esp.1', 'ger.1', 'usa.1'];
+
+async function fetchEspnSoccerGamesByDate(date: string, leaguePath: string): Promise<EspnSoccerGameItem[]> {
   const yyyymmdd = date.replaceAll('-', '');
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=${yyyymmdd}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leaguePath}/scoreboard?dates=${yyyymmdd}`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -577,12 +582,16 @@ async function fetchEspnSoccerGamesByDate(date: string): Promise<EspnSoccerGameI
 }
 
 export async function fetchSoccerGamesByDate(date: string): Promise<SoccerGameItem[]> {
-  try {
-    const espn = await fetchEspnSoccerGamesByDate(date);
-    if (espn.length > 0) return espn;
-  } catch (error) {
-    console.warn('[espn] soccer feed failed, trying SportsData fallback:', error);
+  const espnGames: EspnSoccerGameItem[] = [];
+  for (const leaguePath of SOCCER_LEAGUE_PATHS) {
+    try {
+      const games = await fetchEspnSoccerGamesByDate(date, leaguePath);
+      espnGames.push(...games);
+    } catch (error) {
+      console.warn(`[espn] soccer feed failed for ${leaguePath}:`, error);
+    }
   }
+  if (espnGames.length > 0) return espnGames;
 
   if (config.sportsDataIo.apiKey) {
     try {

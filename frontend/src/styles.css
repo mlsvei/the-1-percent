@@ -2410,6 +2410,10 @@ td {
   font-size: 1.05rem;
 }
 
+.streakFinalizeNotice {
+  margin: 6px 0 0;
+}
+
 .groupSelectRow {
   margin-top: 16px;
 }
@@ -2590,6 +2594,17 @@ td {
 .streakActivePick {
   display: grid;
   gap: 8px;
+}
+
+.streakGameTitle {
+  font-weight: 600;
+  margin: 2px 0 6px;
+}
+
+.streakPropRow {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
 }
 
 .pickemGameCard {

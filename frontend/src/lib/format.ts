@@ -16,6 +16,38 @@ export function fmtDateEastern(iso: string): string {
   }).format(new Date(iso));
 }
 
+export function easternDateKey(iso: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(iso));
+}
+
+export function easternDateTabLabel(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  }).format(new Date(iso));
+}
+
+function easternUtcOffsetMinutes(dateKey: string): number {
+  const probe = new Date(`${dateKey}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'shortOffset' }).formatToParts(probe);
+  const offsetPart = parts.find((p) => p.type === 'timeZoneName')?.value ?? 'GMT-5';
+  const match = offsetPart.match(/GMT([+-]\d+)/);
+  const hours = match ? Number(match[1]) : -5;
+  return hours * 60;
+}
+
+// Mirrors the backend's streakSlateCutoff (game-ingest.ts) - the slate for
+// `dateKey` finalizes at 10pm Eastern the night before.
+export function streakSlateCutoffIso(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const prevDayKey = new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+  const offsetMinutes = easternUtcOffsetMinutes(prevDayKey);
+  const utcMillis = Date.parse(`${prevDayKey}T22:00:00Z`) - offsetMinutes * 60000;
+  return new Date(utcMillis).toISOString();
+}
+
 export function toLocalDateTimeValue(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');

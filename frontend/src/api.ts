@@ -92,6 +92,9 @@ export type StreakPick = {
   homeTeam: string;
   awayTeam: string;
   startTime: string;
+  propId?: string | null;
+  propLabel?: string | null;
+  selectedOptionLabel?: string | null;
 };
 
 export type StreakPickState = {
@@ -99,6 +102,19 @@ export type StreakPickState = {
   bestStreak: number;
   activePick: StreakPick | null;
   history: StreakPick[];
+};
+
+export type StreakProp = {
+  id: string;
+  gameId: string;
+  propType: 'FIRST_TD' | 'PLAYER_STAT_OU';
+  label: string;
+  optionAKey: string;
+  optionALabel: string;
+  optionBKey: string;
+  optionBLabel: string;
+  status: 'OPEN' | 'GRADED' | 'VOID';
+  resultKey: string | null;
 };
 
 export type GroupPicksGridGame = {
@@ -504,6 +520,14 @@ export const api = {
     );
   },
 
+  async createStreakPropPick(userId: string, contestId: string, gameId: string, propId: string, optionKey: string) {
+    return request<{ id: string; entryId: string; gameId: string; propId: string; pickedWinner: string; status: string }>(
+      `/contests/${contestId}/streak-picks`,
+      { method: 'POST', body: JSON.stringify({ gameId, propId, optionKey }) },
+      userId
+    );
+  },
+
   async forfeitStreakPick(userId: string, contestId: string, pickId: string) {
     return request<{ id: string; status: string }>(
       `/contests/${contestId}/streak-picks/${pickId}/forfeit`,
@@ -514,6 +538,22 @@ export const api = {
 
   async getMyStreakPick(userId: string, contestId: string) {
     return request<StreakPickState>(`/contests/${contestId}/streak-picks/me`, {}, userId);
+  },
+
+  async streakProps(contestId: string) {
+    return request<{ props: StreakProp[] }>(`/contests/${contestId}/streak-props`, {});
+  },
+
+  async createStreakProp(
+    userId: string,
+    contestId: string,
+    payload: { gameId: string; propType: 'FIRST_TD' | 'PLAYER_STAT_OU'; label: string; statLine?: number; playerName?: string; statKey?: string }
+  ) {
+    return request<{ id: string; gameId: string; propType: string; status: string }>(
+      `/contests/${contestId}/streak-props`,
+      { method: 'POST', body: JSON.stringify(payload) },
+      userId
+    );
   },
 
   async submitBracket(

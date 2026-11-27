@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { pool, query } from '../db.js';
-import { ensureStreakSchema } from './streak.js';
+import { ensureStreakSchema, generateAutoPropsForContest } from './streak.js';
 import {
   fetchCbbGamesByDate,
   fetchNbaGamesByDate,
@@ -327,6 +327,11 @@ function isPlaceholderTeam(name: string): boolean {
   return n.startsWith('winner ') || n.startsWith('loser ');
 }
 
+function isUnknownTeamName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n === 'tbd' || n === 'unknown home' || n === 'unknown away';
+}
+
 async function upsertContestGames(contestId: string, games: NormalizedGame[]): Promise<{ syncedGames: number; changedGameIds: string[] }> {
   const existingCountResult = await query<{ count: string }>('select count(*)::text as count from games where contest_id = $1', [
     contestId
@@ -543,6 +548,79 @@ function easternDateString(offsetDays: number): string {
   return formatter.format(date); // en-CA formats as YYYY-MM-DD
 }
 
+const STREAK_MAX_PER_SPORT_PER_DAY = 10;
+const STREAK_MAX_GAMES_PER_DAY = 30;
+
+// Picks an evenly spaced subset (by position in the already-time-sorted
+// input) rather than just the first N, so a capped sport's games stay spread
+// across the day instead of bunching up around its earliest tipoffs.
+function downsampleEvenly<T>(items: T[], max: number): T[] {
+  if (max <= 0) return [];
+  if (items.length <= max) return items;
+  if (max === 1) return [items[Math.floor((items.length - 1) / 2)]];
+  const step = (items.length - 1) / (max - 1);
+  const picked = new Set<T>();
+  for (let i = 0; i < max; i += 1) {
+    picked.add(items[Math.round(i * step)]);
+  }
+  return Array.from(picked);
+}
+
+// Gets the America/New_York UTC offset, in minutes, for a given Eastern
+// calendar date (handles the EST/EDT transition correctly since it reads the
+// real offset for that specific date rather than assuming a fixed one).
+function easternUtcOffsetMinutes(dateKey: string): number {
+  const probe = new Date(`${dateKey}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'shortOffset' }).formatToParts(probe);
+  const offsetPart = parts.find((p) => p.type === 'timeZoneName')?.value ?? 'GMT-5';
+  const match = offsetPart.match(/GMT([+-]\d+)/);
+  const hours = match ? Number(match[1]) : -5;
+  return hours * 60;
+}
+
+// The slate for `dateKey` finalizes at 10pm Eastern the night before - the
+// cutoff after which no new games (or the props generated from them) get
+// added for that day, so users don't see the board shift a few hours before
+// game time.
+function streakSlateCutoff(dateKey: string): Date {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const prevDayKey = new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+  const offsetMinutes = easternUtcOffsetMinutes(prevDayKey);
+  const utcMillis = Date.parse(`${prevDayKey}T22:00:00Z`) - offsetMinutes * 60000;
+  return new Date(utcMillis);
+}
+
+async function getExistingStreakGameKeys(contestId: string): Promise<Set<string>> {
+  const existing = await query<{ homeTeam: string; awayTeam: string; startTime: string }>(
+    `select home_team as "homeTeam", away_team as "awayTeam", start_time as "startTime" from games where contest_id = $1`,
+    [contestId]
+  );
+  return new Set(existing.rows.map((row) => `${row.homeTeam}|${row.awayTeam}|${easternDateFromIso(row.startTime)}`));
+}
+
+// Caps each day's slate at STREAK_MAX_PER_SPORT_PER_DAY per sport and
+// STREAK_MAX_GAMES_PER_DAY overall, splitting the daily budget evenly across
+// whichever sports actually have games that day.
+function selectStreakSlate(games: NormalizedGame[], dates: string[]): NormalizedGame[] {
+  const selected: NormalizedGame[] = [];
+  for (const date of dates) {
+    const bySport = new Map<string, NormalizedGame[]>();
+    for (const game of games) {
+      if (easternDateFromIso(game.startTime) !== date) continue;
+      const list = bySport.get(game.sport) ?? [];
+      list.push(game);
+      bySport.set(game.sport, list);
+    }
+    if (bySport.size === 0) continue;
+    const perSportCap = Math.min(STREAK_MAX_PER_SPORT_PER_DAY, Math.floor(STREAK_MAX_GAMES_PER_DAY / bySport.size));
+    for (const sportGames of bySport.values()) {
+      sportGames.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      selected.push(...downsampleEvenly(sportGames, perSportCap));
+    }
+  }
+  return selected;
+}
+
 // Streak for the Peak pools together whatever games are happening today and
 // tomorrow across every sport the app ingests, so there's always a ~30-game
 // slate to pick from. Unlike the single-sport syncers above, this can't key
@@ -593,7 +671,72 @@ async function syncStreakContest(contest: ContestRow): Promise<{ syncedGames: nu
     console.warn('[game-ingest] Streak NFL fetch failed:', error);
   }
 
-  return upsertContestGames(contest.id, all);
+  // Early-season multi-team events (holiday tournaments, etc.) show their later
+  // rounds as "TBD @ TBD" on ESPN's scoreboard until an earlier round decides
+  // the participants. Excluded here rather than shown and picked, since a user
+  // picking a TBD game before it's filled in would be confusing.
+  const knownTeams = all.filter((game) => !isUnknownTeamName(game.homeTeam) && !isUnknownTeamName(game.awayTeam));
+
+  const now = Date.now();
+  const finalizedDates = new Set(dates.filter((date) => now >= streakSlateCutoff(date).getTime()));
+  let candidatePool = knownTeams;
+  if (finalizedDates.size > 0) {
+    const existingKeys = await getExistingStreakGameKeys(contest.id);
+    candidatePool = knownTeams.filter((game) => {
+      const day = easternDateFromIso(game.startTime);
+      if (!finalizedDates.has(day)) return true;
+      // Finalized day: only let already-selected games through (so their
+      // score/status keep refreshing for grading) - never a new matchup.
+      return existingKeys.has(`${game.homeTeam}|${game.awayTeam}|${day}`);
+    });
+  }
+
+  const limited = selectStreakSlate(candidatePool, dates);
+  const result = await upsertContestGames(contest.id, limited);
+
+  const nonFinalizedDates = new Set(dates.filter((date) => !finalizedDates.has(date)));
+  try {
+    const selectedKeys = new Set(limited.map((game) => `${game.homeTeam}|${game.awayTeam}|${easternDateFromIso(game.startTime)}`));
+    await pruneUnselectedStreakGames(contest.id, selectedKeys, nonFinalizedDates);
+  } catch (error) {
+    console.warn(`[game-ingest] Streak slate pruning failed for contest ${contest.id}:`, error);
+  }
+
+  try {
+    await generateAutoPropsForContest(contest.id);
+  } catch (error) {
+    console.warn(`[game-ingest] Streak auto-prop generation failed for contest ${contest.id}:`, error);
+  }
+  return result;
+}
+
+// Keeps a not-yet-finalized day's slate matching its latest selection (so the
+// per-sport/day caps stay real across cycles as the pool shifts, e.g. a new
+// league added or a TBD game resolving) instead of silently growing forever,
+// since upsertContestGames only ever inserts/updates. Never touches a
+// finalized day, and never removes a game a user has already picked or that
+// already has a prop attached.
+async function pruneUnselectedStreakGames(contestId: string, selectedKeys: Set<string>, nonFinalizedDates: Set<string>): Promise<void> {
+  if (nonFinalizedDates.size === 0) return;
+
+  const existing = await query<{ id: string; homeTeam: string; awayTeam: string; startTime: string }>(
+    `select id, home_team as "homeTeam", away_team as "awayTeam", start_time as "startTime" from games where contest_id = $1`,
+    [contestId]
+  );
+
+  for (const row of existing.rows) {
+    const day = easternDateFromIso(row.startTime);
+    if (!nonFinalizedDates.has(day)) continue;
+    if (selectedKeys.has(`${row.homeTeam}|${row.awayTeam}|${day}`)) continue;
+
+    const referenced = await query<{ exists: boolean }>(
+      `select exists(select 1 from streak_picks where game_id = $1) or exists(select 1 from streak_props where game_id = $1) as "exists"`,
+      [row.id]
+    );
+    if (referenced.rows[0]?.exists) continue;
+
+    await query('delete from games where id = $1', [row.id]);
+  }
 }
 
 function easternDateFromIso(iso: string): string {
