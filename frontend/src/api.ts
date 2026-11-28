@@ -177,6 +177,7 @@ export type Game = {
   awayScore: number | null;
   winner: string | null;
   week: number | null;
+  favoriteTeam: string | null;
 };
 
 export type CbbSpotMatchGame = {

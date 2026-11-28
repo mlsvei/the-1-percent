@@ -3975,13 +3975,22 @@ export default function App() {
                                       <div className={'teamPickBtn readOnly ' + (isGraded && game.winner === game.awayTeam ? 'gameWinner' : '')}>
                                         {awayLogo ? <img className="nflPickTeamLogo" src={awayLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
                                         <span>{game.awayTeam}</span>
+                                        {game.sport === 'SOCCER' && game.favoriteTeam ? (
+                                          <span className="streakFavTag">{game.favoriteTeam === game.awayTeam ? 'Favorite' : 'Underdog'}</span>
+                                        ) : null}
                                         {game.awayScore != null ? <span className="streakScoreValue">{game.awayScore}</span> : null}
                                       </div>
                                       <div className={'teamPickBtn readOnly ' + (isGraded && game.winner === game.homeTeam ? 'gameWinner' : '')}>
                                         {homeLogo ? <img className="nflPickTeamLogo" src={homeLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
                                         <span>{game.homeTeam}</span>
+                                        {game.sport === 'SOCCER' && game.favoriteTeam ? (
+                                          <span className="streakFavTag">{game.favoriteTeam === game.homeTeam ? 'Favorite' : 'Underdog'}</span>
+                                        ) : null}
                                         {game.homeScore != null ? <span className="streakScoreValue">{game.homeScore}</span> : null}
                                       </div>
+                                      {isGraded && game.winner == null && game.sport === 'SOCCER' && game.favoriteTeam ? (
+                                        <p className="muted">Draw - underdog pick wins, favorite pick loses.</p>
+                                      ) : null}
                                       {myPick ? (
                                         <p className={'streakMyPickNote ' + myPickClass}>
                                           Your pick: {myPick.pickedWinner} - {myPick.status}
@@ -3990,7 +3999,10 @@ export default function App() {
                                     </div>
                                   ) : (
                                     <>
-                                      <div className="muted olympicMeta">Who will win this game?</div>
+                                      <div className="muted olympicMeta">
+                                        Who will win this game?
+                                        {game.sport === 'SOCCER' && game.favoriteTeam ? ' Favorite must win outright - underdog wins on a win or tie.' : ''}
+                                      </div>
                                       <div className="olympicTeamButtons">
                                         <button
                                           type="button"
@@ -4000,6 +4012,9 @@ export default function App() {
                                         >
                                           {awayLogo ? <img className="nflPickTeamLogo" src={awayLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
                                           <span>{game.awayTeam}</span>
+                                          {game.sport === 'SOCCER' && game.favoriteTeam ? (
+                                            <span className="streakFavTag">{game.favoriteTeam === game.awayTeam ? 'Favorite' : 'Underdog'}</span>
+                                          ) : null}
                                         </button>
                                         <button
                                           type="button"
@@ -4009,6 +4024,9 @@ export default function App() {
                                         >
                                           {homeLogo ? <img className="nflPickTeamLogo" src={homeLogo} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /> : null}
                                           <span>{game.homeTeam}</span>
+                                          {game.sport === 'SOCCER' && game.favoriteTeam ? (
+                                            <span className="streakFavTag">{game.favoriteTeam === game.homeTeam ? 'Favorite' : 'Underdog'}</span>
+                                          ) : null}
                                         </button>
                                       </div>
                                     </>

@@ -190,7 +190,8 @@ function inferWinner(status: string, game: NormalizedGame): string | null {
     normalized === 'off' ||
     normalized.startsWith('f/') ||
     normalized.startsWith('f ') ||
-    normalized.includes('complete');
+    normalized.includes('complete') ||
+    normalized === 'ft'; // soccer's "Full Time" status
 
   if (!isFinal) {
     return null;
@@ -382,7 +383,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
                home_score = $7,
                away_score = $8,
                winner = $9,
-               week = coalesce($10, week)
+               week = coalesce($10, week),
+               favorite_team = coalesce($11, favorite_team)
            where id = $1`,
           [
             existingByMatchup.rows[0].id,
@@ -394,7 +396,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
             game.homeScore,
             game.awayScore,
             winner,
-            game.week
+            game.week,
+            game.favoriteTeam
           ]
         );
         changedGameIds.push(game.providerGameId);
@@ -402,8 +405,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
       }
 
       await client.query(
-        `insert into games (id, contest_id, provider_game_id, sport, home_team, away_team, start_time, status, home_score, away_score, winner, week)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `insert into games (id, contest_id, provider_game_id, sport, home_team, away_team, start_time, status, home_score, away_score, winner, week, favorite_team)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          on conflict (contest_id, provider_game_id)
          do update set
            sport = excluded.sport,
@@ -414,7 +417,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
            home_score = excluded.home_score,
            away_score = excluded.away_score,
            winner = excluded.winner,
-           week = coalesce(excluded.week, games.week)`,
+           week = coalesce(excluded.week, games.week),
+           favorite_team = coalesce(excluded.favorite_team, games.favorite_team)`,
         [
           randomUUID(),
           contestId,
@@ -427,7 +431,8 @@ async function upsertContestGames(contestId: string, games: NormalizedGame[]): P
           game.homeScore,
           game.awayScore,
           winner,
-          game.week
+          game.week,
+          game.favoriteTeam
         ]
       );
       changedGameIds.push(game.providerGameId);
@@ -590,12 +595,35 @@ function streakSlateCutoff(dateKey: string): Date {
   return new Date(utcMillis);
 }
 
-async function getExistingStreakGameKeys(contestId: string): Promise<Set<string>> {
-  const existing = await query<{ homeTeam: string; awayTeam: string; startTime: string }>(
-    `select home_team as "homeTeam", away_team as "awayTeam", start_time as "startTime" from games where contest_id = $1`,
+// A game still in progress right at midnight Eastern (when its calendar day
+// stops being "today"/"tomorrow" and drops out of the normal sync window)
+// would otherwise freeze forever mid-game - never reaching Final, which also
+// blocks every prop attached to it from ever resolving. Finds any day, up to
+// 3 days back, that still has an ungraded game so its live status keeps
+// getting refreshed until it actually finishes.
+async function getRecentUngradedStreakDates(contestId: string, todayKey: string): Promise<string[]> {
+  const result = await query<{ day: string }>(
+    `select distinct to_char(start_time at time zone 'America/New_York', 'YYYY-MM-DD') as day
+       from games where contest_id = $1 and winner is null`,
     [contestId]
   );
-  return new Set(existing.rows.map((row) => `${row.homeTeam}|${row.awayTeam}|${easternDateFromIso(row.startTime)}`));
+  const cutoff = new Date(`${todayKey}T00:00:00Z`);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 3);
+  const cutoffKey = cutoff.toISOString().slice(0, 10);
+  return result.rows.map((row) => row.day).filter((day) => day >= cutoffKey && day < todayKey);
+}
+
+// Keyed by provider_game_id rather than team names + day - a game's home/away
+// orientation isn't always stable across fetches (ESPN, or our own parsing
+// of it, can report either team as home/away from one call to the next), but
+// its external id never changes, so matching on that avoids spuriously
+// treating an already-known game as new just because the two sides swapped.
+async function getExistingStreakGameIds(contestId: string): Promise<Set<string>> {
+  const existing = await query<{ providerGameId: string }>(
+    `select provider_game_id as "providerGameId" from games where contest_id = $1`,
+    [contestId]
+  );
+  return new Set(existing.rows.map((row) => row.providerGameId));
 }
 
 // Caps each day's slate at STREAK_MAX_PER_SPORT_PER_DAY per sport and
@@ -628,9 +656,11 @@ function selectStreakSlate(games: NormalizedGame[], dates: string[]): Normalized
 // discovering new days' games as the month progresses.
 async function syncStreakContest(contest: ContestRow): Promise<{ syncedGames: number; changedGameIds: string[] }> {
   const dates = [easternDateString(0), easternDateString(1)];
+  const staleDates = await getRecentUngradedStreakDates(contest.id, dates[0]);
+  const fetchDates = Array.from(new Set([...dates, ...staleDates]));
   const all: NormalizedGame[] = [];
 
-  for (const date of dates) {
+  for (const date of fetchDates) {
     try {
       const games = await fetchNbaGamesByDate(date);
       for (const game of games) all.push(normalizeNbaGame(game));
@@ -663,7 +693,7 @@ async function syncStreakContest(contest: ContestRow): Promise<{ syncedGames: nu
   try {
     const nflGames = await fetchNflCurrentWeekFromEspn(contest.season);
     for (const game of nflGames) {
-      if (dates.includes(easternDateFromIso(game.startTime))) {
+      if (fetchDates.includes(easternDateFromIso(game.startTime))) {
         all.push(game);
       }
     }
@@ -676,23 +706,43 @@ async function syncStreakContest(contest: ContestRow): Promise<{ syncedGames: nu
   // the participants. Excluded here rather than shown and picked, since a user
   // picking a TBD game before it's filled in would be confusing.
   const knownTeams = all.filter((game) => !isUnknownTeamName(game.homeTeam) && !isUnknownTeamName(game.awayTeam));
+  const pool = knownTeams.filter((game) => dates.includes(easternDateFromIso(game.startTime)));
+  const staleRefresh = knownTeams.filter((game) => staleDates.includes(easternDateFromIso(game.startTime)));
+
+  const existingIds = await getExistingStreakGameIds(contest.id);
 
   const now = Date.now();
   const finalizedDates = new Set(dates.filter((date) => now >= streakSlateCutoff(date).getTime()));
-  let candidatePool = knownTeams;
+  let candidatePool = pool;
   if (finalizedDates.size > 0) {
-    const existingKeys = await getExistingStreakGameKeys(contest.id);
-    candidatePool = knownTeams.filter((game) => {
+    candidatePool = pool.filter((game) => {
       const day = easternDateFromIso(game.startTime);
       if (!finalizedDates.has(day)) return true;
       // Finalized day: only let already-selected games through (so their
       // score/status keep refreshing for grading) - never a new matchup.
-      return existingKeys.has(`${game.homeTeam}|${game.awayTeam}|${day}`);
+      return existingIds.has(game.providerGameId);
     });
   }
 
   const limited = selectStreakSlate(candidatePool, dates);
   const result = await upsertContestGames(contest.id, limited);
+
+  // A day that's already rolled past "today"/"tomorrow" is done being
+  // selected from, but a game that was still live right at midnight would
+  // otherwise freeze forever mid-game - never reaching Final, which also
+  // blocks any prop on it from ever resolving. This only ever updates an
+  // already-existing row (filtered to known ids below), never adds a new
+  // game to an old day.
+  const staleUpdates = staleRefresh.filter((game) => existingIds.has(game.providerGameId));
+  if (staleUpdates.length > 0) {
+    try {
+      const staleResult = await upsertContestGames(contest.id, staleUpdates);
+      result.syncedGames += staleResult.syncedGames;
+      result.changedGameIds.push(...staleResult.changedGameIds);
+    } catch (error) {
+      console.warn(`[game-ingest] Streak stale-day refresh failed for contest ${contest.id}:`, error);
+    }
+  }
 
   const nonFinalizedDates = new Set(dates.filter((date) => !finalizedDates.has(date)));
   try {
@@ -888,6 +938,10 @@ export async function ensureGamesWeekColumn() {
   await query('alter table games add column if not exists week smallint');
 }
 
+export async function ensureGamesFavoriteColumn() {
+  await query('alter table games add column if not exists favorite_team text');
+}
+
 export async function syncContestGames(args: {
   contestId?: string;
   bracketFromDate?: string;
@@ -895,6 +949,7 @@ export async function syncContestGames(args: {
   includeBracketContests?: boolean;
 }): Promise<SyncContestResult[]> {
   await ensureGamesWeekColumn();
+  await ensureGamesFavoriteColumn();
   await ensureStreakSchema();
   const includeBracketContests = args.includeBracketContests ?? true;
   const contests = await getContestsForIngest(args.contestId);

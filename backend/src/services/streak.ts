@@ -184,6 +184,10 @@ function findStatValue(summary: EspnSummary, playerName: string, statKey: string
       if (index < 0) continue;
       for (const athlete of cat.athletes ?? []) {
         if (athlete.athlete?.displayName?.toLowerCase() === playerName.toLowerCase()) {
+          // ESPN lists an inactive/DNP player with an empty stats array -
+          // that's 0 of everything, not "unknown", so grade it as 0 rather
+          // than leaving the prop stuck open forever.
+          if ((athlete.stats?.length ?? 0) === 0) return 0;
           const raw = athlete.stats?.[index];
           const value = raw != null ? Number(raw) : NaN;
           if (!Number.isNaN(value)) return value;
@@ -249,7 +253,7 @@ export async function gradeOpenStreakProps(contestId: string): Promise<void> {
       continue;
     }
 
-    const isFinal = /final/i.test(gameStatus);
+    const isFinal = /final/i.test(gameStatus) || gameStatus.trim().toLowerCase() === 'ft';
 
     for (const prop of props) {
       if (prop.propType === 'FIRST_TD') {

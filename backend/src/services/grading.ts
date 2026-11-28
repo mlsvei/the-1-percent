@@ -301,13 +301,15 @@ async function gradeStreakContest(contest: ContestRow): Promise<{ contestId: str
     pickedWinner: string;
     propId: string | null;
     winner: string | null;
+    sport: string;
+    favoriteTeam: string | null;
     propStatus: string | null;
     propResultKey: string | null;
     currentStreak: number;
     bestStreak: number;
   }>(
     `select sp.id as "pickId", sp.entry_id as "entryId", sp.picked_winner as "pickedWinner", sp.prop_id as "propId",
-            g.winner, p.status as "propStatus", p.result_key as "propResultKey",
+            g.winner, g.sport, g.favorite_team as "favoriteTeam", p.status as "propStatus", p.result_key as "propResultKey",
             e.current_streak as "currentStreak", e.best_streak as "bestStreak"
        from streak_picks sp
        join games g on g.id = sp.game_id
@@ -317,6 +319,10 @@ async function gradeStreakContest(contest: ContestRow): Promise<{ contestId: str
         and e.contest_id = $1
         and (
           (sp.prop_id is null and g.winner is not null)
+          or (
+            sp.prop_id is null and g.winner is null and g.sport = 'SOCCER' and g.favorite_team is not null
+            and (g.status ilike '%final%' or g.status = 'FT')
+          )
           or (sp.prop_id is not null and p.status in ('GRADED','VOID'))
         )`,
     [contest.id]
@@ -332,8 +338,16 @@ async function gradeStreakContest(contest: ContestRow): Promise<{ contestId: str
       continue;
     }
 
-    const resultKey = row.propId ? row.propResultKey : row.winner;
-    const won = row.pickedWinner === resultKey;
+    let won: boolean;
+    if (row.propId) {
+      won = row.pickedWinner === row.propResultKey;
+    } else if (row.winner == null && row.sport === 'SOCCER' && row.favoriteTeam) {
+      // Soccer draw: the favorite needed an outright win (so this is a loss
+      // for a favorite pick), while the underdog survives a tie (a win).
+      won = row.pickedWinner !== row.favoriteTeam;
+    } else {
+      won = row.pickedWinner === row.winner;
+    }
     const nextCurrent = won ? row.currentStreak + 1 : 0;
     const nextBest = Math.max(row.bestStreak, nextCurrent);
 

@@ -58,6 +58,7 @@ type SoccerGameItem = {
   HomeTeamScore?: number;
   AwayTeamScore?: number;
   WinningTeam?: string;
+  FavoriteTeam?: string;
 } & AnyRecord;
 
 type EspnSoccerGameItem = SoccerGameItem;
@@ -531,6 +532,21 @@ export async function fetchCbbGamesByDate(date: string): Promise<CbbGameItem[]> 
 // just another entry here.
 const SOCCER_LEAGUE_PATHS = ['uefa.champions', 'eng.1', 'esp.1', 'ger.1', 'usa.1'];
 
+// DraftKings moneyline odds (via ESPN's scoreboard, already fetched - no
+// extra call) - whichever side has the negative (shorter) price is the
+// favorite. Returns undefined when no odds are posted for this match.
+function extractSoccerFavorite(competition: AnyRecord, homeName: string, awayName: string): string | undefined {
+  const odds = Array.isArray(competition.odds) ? (competition.odds as AnyRecord[]) : [];
+  const moneyline = asRecord(odds[0]?.moneyline);
+  if (!moneyline.home || !moneyline.away) return undefined;
+
+  const homePrice = Number(asRecord(asRecord(moneyline.home).close ?? asRecord(moneyline.home).open).odds);
+  const awayPrice = Number(asRecord(asRecord(moneyline.away).close ?? asRecord(moneyline.away).open).odds);
+  if (!Number.isFinite(homePrice) || !Number.isFinite(awayPrice) || homePrice === awayPrice) return undefined;
+
+  return homePrice < awayPrice ? homeName : awayName;
+}
+
 async function fetchEspnSoccerGamesByDate(date: string, leaguePath: string): Promise<EspnSoccerGameItem[]> {
   const yyyymmdd = date.replaceAll('-', '');
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leaguePath}/scoreboard?dates=${yyyymmdd}`;
@@ -576,7 +592,8 @@ async function fetchEspnSoccerGamesByDate(date: string, leaguePath: string): Pro
       Status: status,
       HomeTeamScore: homeScore,
       AwayTeamScore: awayScore,
-      WinningTeam: winner
+      WinningTeam: winner,
+      FavoriteTeam: extractSoccerFavorite(competition, homeName, awayName)
     } as EspnSoccerGameItem;
   });
 }
@@ -775,6 +792,7 @@ export type NormalizedGame = {
   awayScore: number | null;
   winner: string | null;
   week: number | null;
+  favoriteTeam?: string | null;
 };
 
 function normalizeCommonGame(item: AnyRecord): {
@@ -861,5 +879,6 @@ export function normalizeSoccerGame(item: SoccerGameItem): NormalizedGame {
   const homeTeam = canonicalizeSoccerTeamName(normalized.homeTeam);
   const awayTeam = canonicalizeSoccerTeamName(normalized.awayTeam);
   const winner = normalized.winner ? canonicalizeSoccerTeamName(normalized.winner) : null;
-  return { ...normalized, sport: 'SOCCER', homeTeam, awayTeam, winner };
+  const favoriteTeam = record.FavoriteTeam ? canonicalizeSoccerTeamName(String(record.FavoriteTeam)) : null;
+  return { ...normalized, sport: 'SOCCER', homeTeam, awayTeam, winner, favoriteTeam };
 }

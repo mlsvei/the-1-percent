@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db.js';
 import { gradeContest } from '../services/grading.js';
-import { ensureGamesWeekColumn } from '../services/game-ingest.js';
+import { ensureGamesWeekColumn, ensureGamesFavoriteColumn } from '../services/game-ingest.js';
 import { ensureStreakSchema } from '../services/streak.js';
 import { refreshContestStatuses } from '../services/contest-status.js';
 import { buildUpcomingSpotMatches } from '../services/cbb-spot-matcher.js';
@@ -425,9 +425,11 @@ contestsRouter.get('/contests', async (_req, res) => {
 
 contestsRouter.get('/contests/:contestId/games', async (req, res) => {
   await ensureGamesWeekColumn();
+  await ensureGamesFavoriteColumn();
   const result = await query(
     `select id, provider_game_id as "providerGameId", sport, home_team as "homeTeam", away_team as "awayTeam",
-            start_time as "startTime", status, home_score as "homeScore", away_score as "awayScore", winner, week
+            start_time as "startTime", status, home_score as "homeScore", away_score as "awayScore", winner, week,
+            favorite_team as "favoriteTeam"
      from games
      where contest_id = $1
      order by start_time asc`,

@@ -2639,6 +2639,14 @@ td {
   opacity: 0.8;
 }
 
+.streakFavTag {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
 .pickemGameCard.myPickWrong {
   border-color: #ff6b6b;
   background: color-mix(in srgb, var(--panel), #ff6b6b 10%);
